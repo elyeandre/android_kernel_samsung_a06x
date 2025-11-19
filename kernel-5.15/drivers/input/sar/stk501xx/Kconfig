@@ -1,0 +1,13 @@
+#
+# Mediatek STK501XX_SAR
+#
+
+config STK501XX_SAR
+	tristate "STK501XX_SAR driver"
+	depends on I2C
+	help
+	  Say Y here if you have STK501XX_SAR controller
+	  chip in your system.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here: the
+	  module will be called  STK501XX_SAR key.

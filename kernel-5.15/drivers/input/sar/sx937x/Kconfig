@@ -1,0 +1,13 @@
+#
+# Mediatek SX937X_SAR
+#
+
+config SX937X_SAR
+	tristate "SX937X_SAR driver"
+	depends on I2C
+	help
+	  Say Y here if you have SX937X_SAR controller
+	  chip in your system.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here: the
+	  module will be called  SX937X_SAR key.

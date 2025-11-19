@@ -1,0 +1,186 @@
+
+
+&spi3 {
+	fpc@0 {
+	compatible ="mediatek,fpsensor";
+	reg = <0>;
+        fpc,rst_gpio = <&pio 7 0x0>;
+        fpc,irq_gpio = <&pio 15 0>;
+        vdd_io-supply = <&mt6377_vfp>;
+		status = "okay";
+	};
+	fingerprint@1 {
+		compatible = "goodix,goodix-fp";
+		reg = <1>;
+		status = "okay";
+	};
+	silead_fp@2 {
+             compatible = "mediatek,silead";
+             reg = <2>;
+             spi-id = <3>;
+             spi-irq = <160>;
+             spi-reg = <11010000>;
+             spi-max-frequency = <4000000>;
+			 avdd-supply = <&mt6377_vfp>;
+             status = "okay";
+        };
+};
+
+&goodix_fp {
+    vdd-supply = <&mt6377_vfp>;
+    status = "okay";
+};
+
+&silead_fp {
+    pinctrl-names = "default", "rst-low", "rst-high",
+                    "irq-init", "spi-default", "irq-low";
+    pinctrl-0 = <&silfp_default>;
+    pinctrl-1 = <&silfp_rst_low>;
+    pinctrl-2 = <&silfp_rst_high>;
+    pinctrl-3 = <&silfp_irq>;
+    pinctrl-4 = <&fingerprint_pins_default>;
+    pinctrl-5 = <&silfp_irq_low>;
+    status = "okay";
+};
+
+&pio {
+    silfp_default: silfpdefault {
+    };
+
+    silfp_rst_high: state_reset_high {
+        pins_cmd_dat {
+        pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;
+        slew-rate = <1>;
+        output-high;
+        };
+    };
+
+    silfp_rst_low: state_reset_low {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;
+            slew-rate = <1>;
+            output-low;
+        };
+    };
+
+    silfp_irq: fp_eint@2 {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+            slew-rate = <0>;
+            bias-pull-down = <00>;
+        };
+    };
+
+    silfp_irq_low: state_irq_low {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+            slew-rate = <1>;
+            output-low;
+        };
+    };
+};
+
+&pio {
+	fingerprint_pins_default: fp_default {
+		pins_cmd_dat {	  
+			pinmux = <PINMUX_GPIO69__FUNC_SPI3_CSB>;
+			slew-rate = <1>;
+			bias-pull-up;
+		};
+
+		pins_cmd2_dat {
+			pinmux = <PINMUX_GPIO68__FUNC_SPI3_CLK>;
+			slew-rate = <1>;
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+
+		pins_cmd3_dat {
+			pinmux = <PINMUX_GPIO71__FUNC_SPI3_MI>;
+			slew-rate = <0>;
+			bias-pull-down;
+		};
+
+		pins_cmd4_dat {
+			pinmux = <PINMUX_GPIO70__FUNC_SPI3_MO>;
+			slew-rate = <1>;
+			bias-pull-down;
+		};
+    };
+};
+
+/*
+&spi3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	fingerprint@0 {
+		compatible = "goodix,goodix-fp";
+		reg = <0>;
+                fpvdd-suppy = <&pio 89 0x00>;
+                spi-max-frequency = <8000000>;
+		status = "okay";
+	};
+
+};
+&goodix_fp {
+	gf,gpio_irq = <&pio 15 0>;
+	pinctrl-names = "default","reset_high","reset_low","spi_mode","vdd_high","vdd_low";
+	pinctrl-0 = <&fingerprint_default>;
+	pinctrl-1 = <&fingerprint_reset_high>;
+	pinctrl-2 = <&fingerprint_reset_low>;
+	pinctrl-3 = <&fingerprint_spi_mode>;
+	pinctrl-4 = <&fingerprint_vdd_high>;
+	pinctrl-5 = <&fingerprint_vdd_low>;
+	status = "okay";
+};
+
+&pio {
+	fingerprint_default: state_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+	fingerprint_reset_high: state_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprint_reset_low: state_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fingerprint_spi_mode:spi_mode{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO68__FUNC_SPI3_CLK>,
+				<PINMUX_GPIO69__FUNC_SPI3_CSB>,
+				<PINMUX_GPIO70__FUNC_SPI3_MO>,
+				<PINMUX_GPIO71__FUNC_SPI3_MI>;
+			drive-strength = <2>;//驱动能力
+		};
+	};
+	fingerprint_vdd_high: state_vdd_high {
+		pins_cmd_dat {
+		pinmux = <PINMUX_GPIO89__FUNC_GPIO89>;
+		slew-rate = <1>;
+		output-high;
+		};
+	};
+	fingerprint_vdd_low: state_vdd_low {
+		pins_cmd_dat {
+		pinmux = <PINMUX_GPIO89__FUNC_GPIO89>;
+		slew-rate = <1>;
+		output-low;
+		};
+	};
+};
+*/
+/* FINGERPRINT end */
+

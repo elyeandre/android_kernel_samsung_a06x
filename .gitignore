@@ -1,0 +1,24 @@
+# Build outputs
+*.o
+*.ko
+*.cmd
+*.tmp
+*.mod.c
+.tmp_versions/
+Module.symvers
+modules.order
+
+# Compiled kernel
+vmlinux
+System.map
+.config.old
+arch/*/boot/compressed/vmlinux
+arch/*/boot/Image
+arch/*/boot/zImage  
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+

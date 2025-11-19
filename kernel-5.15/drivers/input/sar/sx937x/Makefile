@@ -1,0 +1,1 @@
+obj-$(CONFIG_SX937X_SAR) += sx937x.o

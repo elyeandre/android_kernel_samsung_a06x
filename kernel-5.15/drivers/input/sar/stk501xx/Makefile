@@ -1,0 +1,1 @@
+obj-$(CONFIG_STK501XX_SAR) += stk501xx.o

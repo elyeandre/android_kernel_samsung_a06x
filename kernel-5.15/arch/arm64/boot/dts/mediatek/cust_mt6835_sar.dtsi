@@ -1,0 +1,119 @@
+/*
+ * Copyright (C) 2020 - 2023 Semtech, Inc.
+ *
+ * $Revision: 1 $
+ * $Date: 2023-02-21 $
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
+
+&i2c7 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	smtc_sar_sx937x:smtc_sar_sx937x@2c {
+		compatible = "semtech,sx937x";
+		reg = <0x2c>;
+		semtech,nirq-gpio = <&pio 13 0>; /* IRQ */
+		//pinctrl-names = "smtc_pins_default", "smtc_sar_int_active";
+		//pinctrl-0 = <&smtc_pins_default>;
+		//pinctrl-1 = <&smtc_sar_int_active>;
+		wakeup-source;
+		/*main-phases: Phases(aka CH) connected to the antenas for measurement
+		ref-phases: Phases used as temperature reference correction
+		Each bit represents a corresponding phase is for this usage(1) or not(0)
+		Example: 0xF = 0b1 1111, indicates PH0/1/2/3/4 are used as main phase.
+				 0x30 = 0b0110 0000 indicates PH5/6 are used as reference phase.
+		*/
+		semtech,main-phases = <0x0F>;
+		semtech,ref-phases = <0x70>;
+
+		semtech,reg-init = <
+		   0x8024  0x00007F00
+		   0x4004  0x00000070
+		   0x4008  0x00000008
+		   0x8020  0x00000032
+		   0x8028  0x0000089E
+		   0x8034  0x00000886
+		   0x8040  0x00000876
+		   0x804C  0x00000876
+		   0x8058  0x00000876
+		   0x8064  0x00000877
+		   0x8070  0x00000876
+		   0x807C  0x00000876
+		   0x8030  0x00925924
+		   0x803C  0x00964924
+		   0x8048  0x00924925
+		   0x8054  0x0092492C
+		   0x8060  0x00924964
+		   0x806C  0x0092C924
+		   0x8078  0x00B24924
+		   0x8084  0x00FFFFFF
+		   0x8098  0x00000037
+		   0x80B8  0x00000020
+		   0x80D8  0x0000002C
+		   0x80F8  0x00000025
+		   0x8118  0x000000FF
+		   0x8138  0x000000FF
+		   0x8158  0x000000FF
+		   0x8178  0x000000C8
+		   0x80A0  0x21210002
+		   0x80C0  0x22220002
+		   0x80E0  0x17170003
+		   0x8100  0x28280001
+		   0x8188  0x08000014
+		   0x818C  0x08000015
+		   0x8190  0x08000016
+		   0x8090  0x54B45010
+		   0x80B0  0x54B85010
+		   0x80D0  0x54B05000
+		   0x80F0  0x54B05000
+		   0x8110  0x00005300
+		   0x8130  0x00005300
+		   0x8150  0x00005300
+		   0x8170  0x00005300
+		   0x8088  0x00300000
+		   0x80A8  0x00300000
+		   0x80C8  0x00300000
+		   0x80E8  0x00300000
+		   0x8108  0x00300000
+		   0x8128  0x06100000
+		   0x8148  0x06300000
+		   0x8168  0x00300000
+		   0x808C  0x60200630
+		   0x80AC  0x60200630
+		   0x80CC  0x60200630
+		   0x80EC  0x60200630
+		   0x810C  0x60200030
+		   0x812C  0x60200030
+		   0x814C  0x60200030
+		   0x816C  0x60200030
+		   0x802C  0x00914245
+		   0x8038  0x0092824A
+		   0x8044  0x007E81FA
+		   0x8050  0x00548152
+		   0x805C  0x007DC1F7
+		   0x8068  0x00524149
+		   0x8074  0x00510144
+		   0x8080  0x000E4039
+		   0x8024  0x00007f7f
+		>;
+	};
+	sar_stk501xx@28{
+	        compatible = "mediatek,stk501xx";
+	        reg = <0x28>;
+	        interrupt-parent = <&pio>;
+	        interrupts = <13 IRQ_TYPE_LEVEL_LOW 13 0>; /* IRQ */
+	        status = "okay";
+	};
+};

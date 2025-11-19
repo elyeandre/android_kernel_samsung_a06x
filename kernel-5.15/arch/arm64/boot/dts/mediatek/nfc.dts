@@ -1,0 +1,20 @@
+&i2c3 {
+  #address-cells = <1>;
+  #size-cells = <0>;
+  clock-frequency = <400000>;
+  status = "okay";
+  sec-nfc@27 {
+    compatible = "sec-nfc";
+    reg = <0x27>;
+    sec-nfc,ven-gpio = <&pio 39 0>;/*nfcpd*/
+    sec-nfc,firm-gpio = <&pio 42 0>;/*wkup*/
+    sec-nfc,irq-gpio = <&pio 41 0xf>;/*irq*/
+    sec-nfc,clk_req-gpio = <&pio 2 0>;/*clk_req*/
+    //sec-nfc,pmic-ldo = "vdd_ldo20";
+    //clkctrl-reg = <0x10e60a0c>;
+    //clock-names = "OSC_NFC";
+    //clocks = <&clock OSC_NFC>;
+    //pinctrl-names = "default";
+    //pinctrl-0 = <&xclkout1 &nfc_pd &nfc_clkreq>;
+  };
+};
