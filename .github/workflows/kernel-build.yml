@@ -1,0 +1,111 @@
+name: Kernel Build
+
+on:
+  push:
+    branches: main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Maximize disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true    
+
+      - name: Install dependencies
+        run: |
+          echo "[INFO] Installing dependencies..."
+          sudo apt update
+          sudo apt install -y kmod git device-tree-compiler lz4 xz-utils zlib1g-dev python3 libssl-dev build-essential
+          echo "[OK] Dependencies installed"
+
+      - name: Setup Samsung toolchain
+        run: |
+          echo "[INFO] Downloading toolchain..."
+          curl -s -L -o toolchain.tar.gz "https://github.com/elyeandre/android_kernel_samsung_a06x/releases/download/toolchain/toolchain-gcc.tar.gz"
+          echo "[INFO] Extracting toolchain..."
+          tar -xf toolchain.tar.gz 2>/dev/null
+          cp -r toolchain/prebuilts . 2>/dev/null || true
+          mkdir -p kernel/prebuilts && cp -r toolchain/kernel/prebuilts/* kernel/prebuilts/ 2>/dev/null || true
+          rm -rf toolchain toolchain.tar.gz
+          echo "[OK] Toolchain ready"
+
+      - name: Generate build config
+        run: |
+          echo "[INFO] Generating build config"
+          cd kernel-5.15
+          python scripts/gen_build_config.py \
+            --kernel-defconfig a06x_00_defconfig \
+            --kernel-defconfig-overlays "entry_level.config" \
+            -m user \
+            -o ../out/target/product/a06x/obj/KERNEL_OBJ/build.config
+          echo "[OK] Build config generated"
+
+      - name: Build kernel
+        id: build
+        run: |
+          cd kernel-5.15
+          export ARCH=arm64
+          export CROSS_COMPILE="aarch64-linux-gnu-"
+          export CROSS_COMPILE_COMPAT="arm-linux-gnueabi-"
+          export OUT_DIR="../out/target/product/a06x/obj/KERNEL_OBJ"
+          export DIST_DIR="../out/target/product/a06x/obj/KERNEL_OBJ"
+          export BUILD_CONFIG="../out/target/product/a06x/obj/KERNEL_OBJ/build.config"
+          
+          cd ../kernel
+          echo "[INFO] Running build.sh"
+          LTO=thin ./build/build.sh -j4
+          echo "[OK] Kernel compilation completed"
+        continue-on-error: true
+
+      - name: Verify kernel
+        id: verify
+        run: |
+          echo "[INFO] Verifying kernel..."
+          KERNEL_PATH="out/target/product/a06x/obj/KERNEL_OBJ/kernel-5.15/arch/arm64/boot"
+          if [[ -f "${KERNEL_PATH}/Image.gz" ]]; then
+            echo "[OK] Kernel built successfully"
+            ls -lh "${KERNEL_PATH}/Image.gz"
+            echo "image_found=true" >> $GITHUB_OUTPUT
+          else
+            echo "[ERROR] Image.gz not found"
+            find . -name "Image*" -type f 2>/dev/null | head -10
+            exit 1
+          fi
+
+      - name: Prepare artifact
+        if: steps.verify.outputs.image_found == 'true'
+        run: |
+          echo "[INFO] Preparing artifact..."
+          mkdir -p kernel-artifact
+          cp out/target/product/a06x/obj/KERNEL_OBJ/kernel-5.15/arch/arm64/boot/Image.gz kernel-artifact/
+          cp out/target/product/a06x/obj/KERNEL_OBJ/kernel-5.15/arch/arm64/boot/Image kernel-artifact/ 2>/dev/null || true
+          echo "[OK] Artifact ready"
+
+      - name: Upload kernel ZIP
+        if: steps.verify.outputs.image_found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gki-kernel-${{ github.run_number }}
+          path: kernel-artifact/
+          retention-days: 30
+          compression-level: 9
+
+      - name: Upload logs on failure
+        if: steps.build.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ github.run_number }}
+          path: out/
+          retention-days: 7
