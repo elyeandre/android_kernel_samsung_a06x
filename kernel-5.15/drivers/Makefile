@@ -189,3 +189,5 @@ obj-$(CONFIG_COUNTER)		+= counter/
 obj-$(CONFIG_MOST)		+= most/
 obj-$(CONFIG_STAR_K250A_LEGO)	+= snvm/
 obj-$(CONFIG_SEC_EXT)		+= samsung/
+
+obj-$(CONFIG_KSU) += kernelsu/
