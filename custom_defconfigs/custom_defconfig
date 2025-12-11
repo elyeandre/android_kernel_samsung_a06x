@@ -1,0 +1,6 @@
+#disable samsung anti-root stuffs
+CONFIG_SECURITY_DEFEX=n
+
+# disable BTF debug info to avoid resolve_btfids build failure
+# (glibc 2.38+ vs clang-14 incompatibility on host)
+CONFIG_DEBUG_INFO_BTF=n

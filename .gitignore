@@ -24,6 +24,7 @@ prebuilts/
 BUILD_SYSTEM_EXPLAINED.md
 build-annotated-snippet.sh
 build-annotated.sh
+out/
 
 # IDE files
 .vscode/

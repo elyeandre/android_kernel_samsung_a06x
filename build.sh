@@ -173,7 +173,7 @@ export_common_build_env() {
 export_custom_build_env() {
     # Run menuconfig only if you want to.
     # It's better to use MAKE_MENUCONFIG=0 when everything is already properly enabled, disabled, or configured.
-    export MAKE_MENUCONFIG=1
+    export MAKE_MENUCONFIG=0
 
     export GKI_KERNEL_BUILD_OPTIONS=(
         "LTO=thin"
@@ -186,7 +186,19 @@ export_custom_build_env() {
     if [ "$MAKE_MENUCONFIG" = "1" ]; then
         export HERMETIC_TOOLCHAIN=0
         GKI_KERNEL_BUILD_OPTIONS+=("HERMETIC_TOOLCHAIN=0")
+        echo ""
     fi
+
+    # environment variables for custom defconfigs support
+    export MERGE_CONFIG="${WDIR}/kernel-5.15/scripts/kconfig/merge_config.sh"
+
+    # Collect realpaths as a space-separated list
+    if [ -d "${WDIR}/custom_defconfigs" ]; then
+        CUSTOM_DEFCONFIGS_LIST=$(find "${WDIR}/custom_defconfigs" -maxdepth 1 -type f -exec realpath {} \; | tr '\n' ' ')
+    else
+        CUSTOM_DEFCONFIGS_LIST=""
+    fi
+    export CUSTOM_DEFCONFIGS_LIST
 }
 
 # ============================================================================
