@@ -62,25 +62,23 @@ install_dependencies() {
     # Some packages need installation
     echo -e "${YELLOW}[INFO]${NC} Missing packages: ${missing[*]}"
     
-    # Check if running as root/sudo
+    local SUDO=""
     if [[ $EUID -ne 0 ]]; then
-        echo -e "${RED}[ERROR]${NC} Need sudo to install missing packages"
-        echo -e "${YELLOW}[INFO]${NC} Run: ${BLUE}sudo $0${NC}"
-        exit 1
+        SUDO="sudo"
     fi
-    
+
     echo -e "${YELLOW}[INFO]${NC} Installing ${#missing[@]} missing packages..."
-    
+
     # Update package lists only when needed
-    if ! apt-get update -qq 2>&1 | grep -q "^E:"; then
+    if ! ${SUDO} apt-get update -qq 2>&1 | grep -q "^E:"; then
         :
     else
         echo -e "${RED}[ERROR]${NC} Failed to update package lists" >&2
         return 1
     fi
-    
+
     # Install only missing packages (hide output)
-    if DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${missing[@]}" > /dev/null 2>&1; then
+    if DEBIAN_FRONTEND=noninteractive ${SUDO} apt-get install -y -qq "${missing[@]}" > /dev/null 2>&1; then
         echo -e "${GREEN}[OK]${NC} Dependencies installed\n"
     else
         echo -e "${RED}[ERROR]${NC} Failed to install dependencies" >&2

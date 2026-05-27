@@ -25,18 +25,9 @@ jobs:
           large-packages: true
           swap-storage: true
 
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            build-essential bc bison flex \
-            libssl-dev libelf-dev python3 \
-            git kmod device-tree-compiler \
-            lz4 xz-utils zlib1g-dev
-
       - name: Build kernel
         id: build
-        run: bash build.sh --skip-deps
+        run: bash build.sh
         continue-on-error: true
 
       - name: Verify kernel
