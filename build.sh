@@ -9,6 +9,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 export WDIR="$(pwd)"
+mkdir -p "${WDIR}/dist"
 
 # ============================================================================
 # Print Banner
@@ -206,7 +207,10 @@ export_custom_build_env() {
 # ============================================================================
 build_gki_kernel() {
     cd "${WDIR}/kernel"
-    env "${GKI_KERNEL_BUILD_OPTIONS[@]}" ./build/build.sh
+
+    env "${GKI_KERNEL_BUILD_OPTIONS[@]}" ./build/build.sh && \
+        cp "${WDIR}/out/target/product/a06x/obj/KERNEL_OBJ/kernel-5.15/arch/arm64/boot/Image"* "${WDIR}/dist"
+
     local exit_code=$?
     cd "${WDIR}"
     return $exit_code
