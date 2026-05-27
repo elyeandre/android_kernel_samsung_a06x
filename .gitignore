@@ -16,6 +16,15 @@ arch/*/boot/compressed/vmlinux
 arch/*/boot/Image
 arch/*/boot/zImage  
 
+# Toolchain directories
+kernel/prebuilts/
+prebuilts/
+
+# Local build files/scripts
+BUILD_SYSTEM_EXPLAINED.md
+build-annotated-snippet.sh
+build-annotated.sh
+
 # IDE files
 .vscode/
 .idea/
