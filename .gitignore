@@ -1,22 +1,133 @@
-# Build outputs
-*.o
+#
+# NOTE! Don't add files that are generated in specific
+# subdirectories here. Add them in the ".gitignore" file
+# in that subdirectory instead.
+#
+# Normal rules (sorted alphabetically)
+#
+.*
+*.a
+*.bin
+*.bz2
+*.c.[012]*.*
+*.dtb
+*.dtb.S
+*.dwo
+*.elf
+*.gcno
+*.gz
+*.i
 *.ko
-*.cmd
-*.tmp
+*.ll
+*.lst
+*.lz4
+*.lzma
+*.lzo
 *.mod.c
-.tmp_versions/
+*.o
+*.o.*
+*.order
+*.patch
+*.s
+*.so
+*.so.dbg
+*.su
+*.symtypes
+*.tar
+*.xz
 Module.symvers
-modules.order
+modules.builtin
 
-# Compiled kernel
-vmlinux
-System.map
-.config.old
-arch/*/boot/compressed/vmlinux
-arch/*/boot/Image
-arch/*/boot/zImage  
+#
+# Top-level generic files
+#
+/tags
+/TAGS
+/linux
+/vmlinux
+/vmlinux.32
+/vmlinux-gdb.py
+/vmlinuz
+/System.map
+/Module.markers
 
-# Build artifacts
+#
+# RPM spec file (make rpm-pkg)
+#
+/*.spec
+
+#
+# Debian directory (make deb-pkg)
+#
+/debian/
+
+#
+# tar directory (make tar*-pkg)
+#
+/tar-install/
+
+#
+# git files that we don't want to ignore even if they are dot-files
+#
+!.gitignore
+!.mailmap
+!.cocciconfig
+
+#
+# Generated include files
+#
+include/config
+include/generated
+arch/*/include/generated
+
+# stgit generated dirs
+patches-*
+
+# quilt's files
+patches
+series
+
+# cscope files
+cscope.*
+ncscope.*
+
+# gnu global files
+GPATH
+GRTAGS
+GSYMS
+GTAGS
+
+# id-utils files
+ID
+
+*.orig
+*.rej
+*~
+\#*#
+
+#
+# Leavings from module signing
+#
+extra_certificates
+signing_key.pem
+signing_key.priv
+signing_key.x509
+x509.genkey
+
+# Kconfig presets
+all.config
+
+# Kdevelop4
+*.kdev4
+
+# fetched Android config fragments
+kernel/configs/android-*.cfg
+
+# Built images
+boot.img.signed
+vbmeta.img.signed
+
+# Build output dirs
 dist/
 out/
 
@@ -24,15 +135,13 @@ out/
 kernel/prebuilts/
 prebuilts/
 
-# Local build files/scripts
-BUILD_SYSTEM_EXPLAINED.md
-build-annotated-snippet.sh
-build-annotated.sh
-
-
 # IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 
+# Local build/doc files
+BUILD_SYSTEM_EXPLAINED.md
+build-annotated-snippet.sh
+build-annotated.sh
