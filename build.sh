@@ -179,7 +179,7 @@ export_common_build_env() {
 export_custom_build_env() {
     # Run menuconfig only if you want to.
     # It's better to use MAKE_MENUCONFIG=0 when everything is already properly enabled, disabled, or configured.
-    export MAKE_MENUCONFIG=1
+    export MAKE_MENUCONFIG=0
 
     export GKI_KERNEL_BUILD_OPTIONS=(
         "LTO=thin"
