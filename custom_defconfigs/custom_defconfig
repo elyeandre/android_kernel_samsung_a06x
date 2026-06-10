@@ -3,8 +3,6 @@ CONFIG_SECURITY_DEFEX=n
 
 # KernelSU-Next
 CONFIG_KSU=y
-CONFIG_KSU_KPROBES_HOOK=n
-CONFIG_KSU_LSM_SECURITY_HOOKS=y
 
 # Droidspaces GKI support (kABI-safe with sched.h patch)
 
