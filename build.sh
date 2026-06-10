@@ -163,7 +163,6 @@ export_common_build_env() {
 
     # Common exports from Samsung's build_kernel.sh
     export ARCH=arm64
-    export PLATFORM_VERSION=13
     export CROSS_COMPILE="aarch64-linux-gnu-"
     export CROSS_COMPILE_COMPAT="arm-linux-gnueabi-"
     export OUT_DIR="../out/target/product/a06x/obj/KERNEL_OBJ"
