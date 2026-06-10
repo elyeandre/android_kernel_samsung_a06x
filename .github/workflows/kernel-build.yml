@@ -28,6 +28,8 @@ jobs:
 
       - name: Build kernel
         id: build
+        env:
+          BUILD_KERNEL_VERSION: r${{ github.run_number }}
         run: bash build.sh
         continue-on-error: true
 
@@ -53,6 +55,26 @@ jobs:
             dist/kernel-a06x-*.tar
           retention-days: 30
           compression-level: 9
+
+      - name: Create GitHub Release
+        if: steps.verify.outputs.image_found == 'true' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: r${{ github.run_number }}
+          name: "Kernel A06X r${{ github.run_number }}"
+          body: |
+            ## Samsung Galaxy A06X Custom Kernel
+
+            **Build:** r${{ github.run_number }}
+            **Commit:** ${{ github.sha }}
+
+            ### Flash Instructions
+            1. Download `kernel-a06x-r${{ github.run_number }}.tar`
+            2. Flash via Odin as **AP**
+            3. Do not wipe data
+          files: |
+            dist/boot.img
+            dist/kernel-a06x-r${{ github.run_number }}.tar
 
       - name: Upload logs on failure
         if: steps.build.outcome == 'failure'
