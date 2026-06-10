@@ -80,6 +80,13 @@ jobs:
             exit 1
           fi
 
+      - name: Generate built modules list
+        if: steps.build.outcome != 'cancelled'
+        run: |
+          find out/target/product/a06x/obj/KERNEL_OBJ -name "*.ko" \
+            -exec basename {} \; 2>/dev/null | sort -u > dist/built_modules.txt
+          echo "[INFO] Found $(wc -l < dist/built_modules.txt) compiled modules"
+
       - name: Package Odin flashable tar
         if: steps.verify.outputs.image_found == 'true'
         run: |
@@ -95,6 +102,14 @@ jobs:
         with:
           name: ${{ env.ARCHIVE_NAME }}
           path: ${{ env.ARCHIVE }}
+          retention-days: 30
+
+      - name: Upload modules list
+        if: steps.build.outcome != 'cancelled'
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-modules-${{ github.run_number }}
+          path: dist/built_modules.txt
           retention-days: 30
 
       - name: Create GitHub Release
