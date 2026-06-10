@@ -187,6 +187,17 @@ export_custom_build_env() {
         "KMI_SYMBOL_LIST_STRICT_MODE=0"
         "ABI_DEFINITION="
         "MAKE_MENUCONFIG=${MAKE_MENUCONFIG}"
+        "BUILD_BOOT_IMG=1"
+        "MKBOOTIMG_PATH=${WDIR}/prebuilts_a06x/mkbootimg/mkbootimg.py"
+        "KERNEL_BINARY=Image.gz"
+        "BOOT_IMAGE_HEADER_VERSION=4"
+        "SKIP_VENDOR_BOOT=1"
+        "AVB_SIGN_BOOT_IMG=1"
+        "AVB_BOOT_PARTITION_SIZE=67108864"
+        "AVB_BOOT_KEY=${WDIR}/prebuilts_a06x/mkbootimg/tests/data/testkey_rsa2048.pem"
+        "AVB_BOOT_ALGORITHM=SHA256_RSA2048"
+        "AVB_BOOT_PARTITION_NAME=boot"
+        "MKBOOTIMG_EXTRA_ARGS=--os_version 13.0.0 --os_patch_level 2025-09-00 --pagesize 4096"
     )
 
     if [ "$MAKE_MENUCONFIG" = "1" ]; then
@@ -214,11 +225,23 @@ build_gki_kernel() {
     cd "${WDIR}/kernel"
 
     env "${GKI_KERNEL_BUILD_OPTIONS[@]}" ./build/build.sh && \
-        cp "${WDIR}/out/target/product/a06x/obj/KERNEL_OBJ/kernel-5.15/arch/arm64/boot/Image"* "${WDIR}/dist"
+        cp "${WDIR}/out/target/product/a06x/obj/KERNEL_OBJ/kernel-5.15/arch/arm64/boot/Image"* "${WDIR}/dist" && \
+        cp "${WDIR}/out/target/product/a06x/obj/KERNEL_OBJ/dist/boot.img" "${WDIR}/dist/"
 
     local exit_code=$?
     cd "${WDIR}"
     return $exit_code
+}
+
+# ============================================================================
+# Function: Package as Odin-flashable tar
+# ============================================================================
+build_odin_tar() {
+    echo -e "\n${YELLOW}[INFO]${NC} Packaging Odin-flashable tar...\n"
+    cd "${WDIR}/dist"
+    tar -cvf "kernel-a06x-${BUILD_KERNEL_VERSION}.tar" boot.img
+    echo -e "${GREEN}[OK]${NC} Odin tar created: dist/kernel-a06x-${BUILD_KERNEL_VERSION}.tar\n"
+    cd "${WDIR}"
 }
 
 # ============================================================================
@@ -237,3 +260,4 @@ setup_toolchain
 export_common_build_env
 export_custom_build_env
 build_gki_kernel || exit 1
+build_odin_tar

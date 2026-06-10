@@ -34,12 +34,12 @@ jobs:
       - name: Verify kernel
         id: verify
         run: |
-          if [[ -f "dist/Image" ]]; then
+          if [[ -f "dist/boot.img" ]]; then
             echo "[OK] Kernel built successfully"
-            ls -lh dist/Image*
+            ls -lh dist/
             echo "image_found=true" >> $GITHUB_OUTPUT
           else
-            echo "[ERROR] Image not found in dist/"
+            echo "[ERROR] boot.img not found in dist/"
             exit 1
           fi
 
@@ -48,7 +48,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gki-kernel-${{ github.run_number }}
-          path: dist/
+          path: |
+            dist/boot.img
+            dist/kernel-a06x-*.tar
           retention-days: 30
           compression-level: 9
 
