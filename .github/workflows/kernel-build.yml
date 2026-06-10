@@ -45,6 +45,17 @@ jobs:
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "Tag: ${TAG}"
 
+      - name: Get KernelSU-Next version
+        id: ksu
+        run: |
+          cd kernel-5.15/KernelSU-Next
+          KSU_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "unknown")
+          KSU_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+          KSU_VERSION=$((30000 + KSU_COUNT))
+          echo "tag=${KSU_TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${KSU_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "KernelSU-Next: ${KSU_TAG} (${KSU_VERSION})"
+
       - name: Build kernel
         id: build
         env:
@@ -90,14 +101,15 @@ jobs:
           body: |
             ## KernelSU-Next Kernel — SM-A066B
 
-            | Field     | Value                                    |
-            |-----------|------------------------------------------|
-            | Device    | Samsung Galaxy A06X (SM-A066B)           |
-            | Firmware  | A066BXXS3AYI3                            |
-            | One UI    | 8 (Android 15)                           |
-            | Kernel    | 5.15                                     |
-            | Build tag | `${{ steps.tag.outputs.tag }}`           |
-            | Version   | `${{ github.event.inputs.kernel_version || 'dev' }}` |
+            | Field              | Value                                                |
+            |--------------------|------------------------------------------------------|
+            | Device             | Samsung Galaxy A06X (SM-A066B)                       |
+            | Firmware           | A066BXXS3AYI3                                        |
+            | One UI             | 8 (Android 15)                                       |
+            | Kernel             | 5.15                                                 |
+            | KernelSU-Next      | `${{ steps.ksu.outputs.tag }}` (`${{ steps.ksu.outputs.version }}`) |
+            | Build tag          | `${{ steps.tag.outputs.tag }}`                       |
+            | Version            | `${{ github.event.inputs.kernel_version || 'dev' }}` |
 
             Flash `boot.img` (extracted from the archive) via Odin as **AP**.
 
