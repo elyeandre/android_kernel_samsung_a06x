@@ -27,6 +27,7 @@
 *.o
 *.o.*
 *.order
+*.md
 *.patch
 *.s
 *.so
@@ -141,7 +142,6 @@ prebuilts/
 *.swp
 *.swo
 
-# Local build/doc files
-BUILD_SYSTEM_EXPLAINED.md
+# Local build
 build-annotated-snippet.sh
 build-annotated.sh
