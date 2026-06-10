@@ -145,3 +145,4 @@ prebuilts/
 # Local build
 build-annotated-snippet.sh
 build-annotated.sh
+__pycache__/
