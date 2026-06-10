@@ -1,4 +1,4 @@
-name: KernelSU-Next · SM-A066B One UI 8
+name: Kernel Build · SM-A066B One UI 8
 
 on:
   push:
@@ -9,18 +9,23 @@ on:
         description: "Kernel localversion suffix (e.g. 1.0.0)"
         required: false
         default: "dev"
+      build_variant:
+        description: "Build variant (e.g. KernelSU-Next, KernelSU-Next+DroidSpaces)"
+        required: false
+        default: "KernelSU-Next"
 
 permissions:
   contents: write
 
 jobs:
   build:
-    name: Build KernelSU-Next — A066BXXS3AYI3
+    name: Build — A066BXXS3AYI3
     runs-on: ubuntu-22.04
     timeout-minutes: 120
 
     env:
-      ARTIFACT_BASE: "KernelSU-Next-SM-A066B-OneUI8-A066BXXS3AYI3"
+      ARTIFACT_BASE: "Kernel-SM-A066B-OneUI8-A066BXXS3AYI3"
+      BUILD_VARIANT: ${{ github.event.inputs.build_variant || 'KernelSU-Next' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -97,9 +102,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: "KernelSU-Next · SM-A066B · One UI 8 · A066BXXS3AYI3 [${{ steps.tag.outputs.tag }}]"
+          name: "${{ env.BUILD_VARIANT }} · SM-A066B · One UI 8 · A066BXXS3AYI3 [${{ steps.tag.outputs.tag }}]"
           body: |
-            ## KernelSU-Next Kernel — SM-A066B
+            ## ${{ env.BUILD_VARIANT }} Kernel — SM-A066B
 
             | Field              | Value                                                |
             |--------------------|------------------------------------------------------|
@@ -107,6 +112,7 @@ jobs:
             | Firmware           | A066BXXS3AYI3                                        |
             | One UI             | 8 (Android 15)                                       |
             | Kernel             | 5.15                                                 |
+            | Variant            | `${{ env.BUILD_VARIANT }}`                           |
             | KernelSU-Next      | `${{ steps.ksu.outputs.tag }}` (`${{ steps.ksu.outputs.version }}`) |
             | Build tag          | `${{ steps.tag.outputs.tag }}`                       |
             | Version            | `${{ github.event.inputs.kernel_version || 'dev' }}` |
