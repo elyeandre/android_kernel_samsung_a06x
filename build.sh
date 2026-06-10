@@ -161,6 +161,11 @@ export_common_build_env() {
         -m user \
         -o ../out/target/product/a06x/obj/KERNEL_OBJ/build.config &>/dev/null
 
+    # build.config.mtk.aarch64 sets FILES="vmlinux" which only copies vmlinux to
+    # DIST_DIR. Append Image so build_boot_images() can find the kernel binary.
+    printf '\nFILES="${FILES} arch/arm64/boot/Image"\n' \
+        >> "${WDIR}/out/target/product/a06x/obj/KERNEL_OBJ/build.config.mtk"
+
     # Common exports from Samsung's build_kernel.sh
     export ARCH=arm64
     export CROSS_COMPILE="aarch64-linux-gnu-"
@@ -188,7 +193,7 @@ export_custom_build_env() {
         "MAKE_MENUCONFIG=${MAKE_MENUCONFIG}"
         "BUILD_BOOT_IMG=1"
         "MKBOOTIMG_PATH=${WDIR}/prebuilts_a06x/mkbootimg/mkbootimg.py"
-        "KERNEL_BINARY=Image.gz"
+        "KERNEL_BINARY=Image"
         "BOOT_IMAGE_HEADER_VERSION=4"
         "SKIP_VENDOR_BOOT=1"
         "AVB_SIGN_BOOT_IMG=1"
