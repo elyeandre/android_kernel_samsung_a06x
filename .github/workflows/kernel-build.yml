@@ -1,14 +1,26 @@
-name: Kernel Build (build.sh)
+name: KernelSU-Next · SM-A066B One UI 8
 
 on:
   push:
     branches: main
   workflow_dispatch:
+    inputs:
+      kernel_version:
+        description: "Kernel localversion suffix (e.g. 1.0.0)"
+        required: false
+        default: "dev"
+
+permissions:
+  contents: write
 
 jobs:
   build:
+    name: Build KernelSU-Next — A066BXXS3AYI3
     runs-on: ubuntu-22.04
     timeout-minutes: 120
+
+    env:
+      ARTIFACT_BASE: "KernelSU-Next-SM-A066B-OneUI8-A066BXXS3AYI3"
 
     steps:
       - uses: actions/checkout@v4
@@ -26,10 +38,17 @@ jobs:
           large-packages: true
           swap-storage: true
 
+      - name: Generate release tag
+        id: tag
+        run: |
+          TAG="r$(date -u +'%Y%m%d')-$(openssl rand -hex 4)"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Tag: ${TAG}"
+
       - name: Build kernel
         id: build
         env:
-          BUILD_KERNEL_VERSION: r${{ github.run_number }}
+          BUILD_KERNEL_VERSION: ${{ github.event.inputs.kernel_version || 'dev' }}
         run: bash build.sh
         continue-on-error: true
 
@@ -45,36 +64,49 @@ jobs:
             exit 1
           fi
 
-      - name: Upload kernel artifact
+      - name: Package Odin flashable tar
+        if: steps.verify.outputs.image_found == 'true'
+        run: |
+          NAME="${ARTIFACT_BASE}-${{ steps.tag.outputs.tag }}"
+          tar -cvf "${NAME}.tar" -C dist boot.img
+          zip "${NAME}.tar.zip" "${NAME}.tar"
+          echo "ARCHIVE=${NAME}.tar.zip" >> "$GITHUB_ENV"
+          echo "ARCHIVE_NAME=${NAME}"    >> "$GITHUB_ENV"
+
+      - name: Upload artifact
         if: steps.verify.outputs.image_found == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: gki-kernel-${{ github.run_number }}
-          path: |
-            dist/boot.img
-            dist/kernel-a06x-*.tar
+          name: ${{ env.ARCHIVE_NAME }}
+          path: ${{ env.ARCHIVE }}
           retention-days: 30
-          compression-level: 9
 
       - name: Create GitHub Release
-        if: steps.verify.outputs.image_found == 'true' && github.ref == 'refs/heads/main'
+        if: steps.verify.outputs.image_found == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: r${{ github.run_number }}
-          name: "Kernel A06X r${{ github.run_number }}"
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "KernelSU-Next · SM-A066B · One UI 8 · A066BXXS3AYI3 [${{ steps.tag.outputs.tag }}]"
           body: |
-            ## Samsung Galaxy A06X Custom Kernel
+            ## KernelSU-Next Kernel — SM-A066B
 
-            **Build:** r${{ github.run_number }}
-            **Commit:** ${{ github.sha }}
+            | Field     | Value                                    |
+            |-----------|------------------------------------------|
+            | Device    | Samsung Galaxy A06X (SM-A066B)           |
+            | Firmware  | A066BXXS3AYI3                            |
+            | One UI    | 8 (Android 15)                           |
+            | Kernel    | 5.15                                     |
+            | Build tag | `${{ steps.tag.outputs.tag }}`           |
+            | Version   | `${{ github.event.inputs.kernel_version || 'dev' }}` |
 
-            ### Flash Instructions
-            1. Download `kernel-a06x-r${{ github.run_number }}.tar`
-            2. Flash via Odin as **AP**
-            3. Do not wipe data
-          files: |
-            dist/boot.img
-            dist/kernel-a06x-r${{ github.run_number }}.tar
+            Flash `boot.img` (extracted from the archive) via Odin as **AP**.
+
+            > ⚠️ Automated build — flash at your own risk.
+          files: ${{ env.ARCHIVE }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload logs on failure
         if: steps.build.outcome == 'failure'
