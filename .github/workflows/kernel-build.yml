@@ -87,11 +87,19 @@ jobs:
             -exec basename {} \; 2>/dev/null | sort -u > dist/built_modules.txt
           echo "[INFO] Found $(wc -l < dist/built_modules.txt) compiled modules"
 
+      - name: Rebuild vendor_dlkm and vendor_boot
+        if: steps.verify.outputs.image_found == 'true'
+        run: |
+          sudo apt-get install -y erofs-utils lz4 2>/dev/null
+          KO_DIR="out/target/product/a06x/obj/KERNEL_OBJ"
+          bash scripts/rebuild_vendor_dlkm.sh "$KO_DIR" dist/vendor_dlkm.img
+          bash scripts/rebuild_vendor_boot.sh "$KO_DIR" dist/vendor_boot.img
+
       - name: Package Odin flashable tar
         if: steps.verify.outputs.image_found == 'true'
         run: |
           NAME="${ARTIFACT_BASE}-${{ steps.tag.outputs.tag }}"
-          tar -cvf "${NAME}.tar" -C dist boot.img
+          tar -cvf "${NAME}.tar" -C dist boot.img vendor_dlkm.img vendor_boot.img
           zip "${NAME}.tar.zip" "${NAME}.tar"
           echo "ARCHIVE=${NAME}.tar.zip" >> "$GITHUB_ENV"
           echo "ARCHIVE_NAME=${NAME}"    >> "$GITHUB_ENV"
