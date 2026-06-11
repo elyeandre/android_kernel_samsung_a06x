@@ -1,14 +1,31 @@
-name: Kernel Build (build.sh)
+name: Kernel Build · SM-A066B One UI 8
 
 on:
   push:
     branches: main
   workflow_dispatch:
+    inputs:
+      kernel_version:
+        description: "Kernel localversion suffix (e.g. 1.0.0)"
+        required: false
+        default: "dev"
+      build_variant:
+        description: "Build variant (e.g. KernelSU-Next, KernelSU-Next+DroidSpaces)"
+        required: false
+        default: "KernelSU-Next"
+
+permissions:
+  contents: write
 
 jobs:
   build:
+    name: Build — A066BXXS3AYI3
     runs-on: ubuntu-22.04
     timeout-minutes: 120
+
+    env:
+      ARTIFACT_BASE: "Kernel-SM-A066B-OneUI8-A066BXXS3AYI3"
+      BUILD_VARIANT: ${{ github.event.inputs.build_variant || 'KernelSU-Next' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -26,31 +43,103 @@ jobs:
           large-packages: true
           swap-storage: true
 
+      - name: Generate release tag
+        id: tag
+        run: |
+          TAG="r$(date -u +'%Y%m%d')-$(openssl rand -hex 4)"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Tag: ${TAG}"
+
+      - name: Get KernelSU-Next version
+        id: ksu
+        run: |
+          cd kernel-5.15/KernelSU-Next
+          KSU_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "unknown")
+          KSU_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+          KSU_VERSION=$((30000 + KSU_COUNT))
+          echo "tag=${KSU_TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${KSU_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "KernelSU-Next: ${KSU_TAG} (${KSU_VERSION})"
+
       - name: Build kernel
         id: build
+        env:
+          BUILD_KERNEL_VERSION: ${{ github.event.inputs.kernel_version || 'dev' }}
         run: bash build.sh
         continue-on-error: true
 
       - name: Verify kernel
         id: verify
         run: |
-          if [[ -f "dist/Image" ]]; then
+          if [[ -f "dist/boot.img" ]]; then
             echo "[OK] Kernel built successfully"
-            ls -lh dist/Image*
+            ls -lh dist/
             echo "image_found=true" >> $GITHUB_OUTPUT
           else
-            echo "[ERROR] Image not found in dist/"
+            echo "[ERROR] boot.img not found in dist/"
             exit 1
           fi
 
-      - name: Upload kernel artifact
+      - name: Generate built modules list
+        if: steps.build.outcome != 'cancelled'
+        run: |
+          find out/target/product/a06x/obj/KERNEL_OBJ -name "*.ko" \
+            -exec basename {} \; 2>/dev/null | sort -u > dist/built_modules.txt
+          echo "[INFO] Found $(wc -l < dist/built_modules.txt) compiled modules"
+
+      - name: Package Odin flashable tar
+        if: steps.verify.outputs.image_found == 'true'
+        run: |
+          NAME="${ARTIFACT_BASE}-${{ steps.tag.outputs.tag }}"
+          tar -cvf "${NAME}.tar" -C dist boot.img
+          zip "${NAME}.tar.zip" "${NAME}.tar"
+          echo "ARCHIVE=${NAME}.tar.zip" >> "$GITHUB_ENV"
+          echo "ARCHIVE_NAME=${NAME}"    >> "$GITHUB_ENV"
+
+      - name: Upload artifact
         if: steps.verify.outputs.image_found == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: gki-kernel-${{ github.run_number }}
-          path: dist/
+          name: ${{ env.ARCHIVE_NAME }}
+          path: ${{ env.ARCHIVE }}
           retention-days: 30
-          compression-level: 9
+
+      - name: Upload modules list
+        if: steps.build.outcome != 'cancelled'
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-modules-${{ github.run_number }}
+          path: dist/built_modules.txt
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: steps.verify.outputs.image_found == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "${{ env.BUILD_VARIANT }} · SM-A066B · One UI 8 · A066BXXS3AYI3 [${{ steps.tag.outputs.tag }}]"
+          body: |
+            ## ${{ env.BUILD_VARIANT }} Kernel — SM-A066B
+
+            | Field              | Value                                                |
+            |--------------------|------------------------------------------------------|
+            | Device             | Samsung Galaxy A06X (SM-A066B)                       |
+            | Firmware           | A066BXXS3AYI3                                        |
+            | One UI             | 8 (Android 15)                                       |
+            | Kernel             | 5.15                                                 |
+            | Variant            | `${{ env.BUILD_VARIANT }}`                           |
+            | KernelSU-Next      | `${{ steps.ksu.outputs.tag }}` (`${{ steps.ksu.outputs.version }}`) |
+            | Build tag          | `${{ steps.tag.outputs.tag }}`                       |
+            | Version            | `${{ github.event.inputs.kernel_version || 'dev' }}` |
+
+            Flash `boot.img` (extracted from the archive) via Odin as **AP**.
+
+            > ⚠️ Automated build — flash at your own risk.
+          files: ${{ env.ARCHIVE }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload logs on failure
         if: steps.build.outcome == 'failure'

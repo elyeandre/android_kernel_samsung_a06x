@@ -438,3 +438,38 @@ config MTK_ADVANCED_80211_MLO
           Will support test if set to 'y',
           otherwise will not support test.
 
+# ---------------------------------------------------------------------------
+# External driver module CONFIG entries (MT6835 / A06X)
+# ---------------------------------------------------------------------------
+
+config WLAN_DRV_MODULE
+	bool "Build wlan_drv_gen4m_6835 from source (gen4m ConnAC2x)"
+	depends on MTK_COMBO
+	help
+	  Build wmt_chrdev_wifi.ko and wlan_drv_gen4m_6835.ko from the vendor
+	  source tree (vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m).
+	  Required for MT6835 (Dimensity 6100+) WiFi support.
+
+config MTK_BT_DRV_EXTERNAL
+	bool "Build bt_drv_connac1x from source (WMT BT path)"
+	depends on MTK_COMBO
+	help
+	  Build bt_drv_connac1x.ko from
+	  vendor/mediatek/kernel_modules/connectivity/bt/mt66xx/wmt using the
+	  legacy WMT BT character device path.  Required for MT6835 Bluetooth.
+
+config MTK_GPS_DRV_EXTERNAL
+	bool "Build gps_drv_stp and gps_pwr from source (legacy STP path)"
+	depends on MTK_COMBO
+	help
+	  Build gps_drv_stp.ko and gps_pwr.ko from the vendor GPS source tree
+	  using the legacy STP (Serial Transport Protocol) path without conninfra
+	  dependency.
+
+config MTK_FM_DRV_EXTERNAL
+	bool "Build fmradio_drv_mt6631_6635 from source"
+	depends on MTK_COMBO
+	help
+	  Build fmradio_drv_mt6631_6635.ko from the vendor FM radio source tree
+	  (vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631_6635).
+
