@@ -41,6 +41,12 @@ setup_boot_editor() {
     rm -f "${MODULES_OUTPUT_DIR}/.gitkeep"
     mkdir -p "${MODULES_OUTPUT_DIR}"
 
+    # boot_editor's PackableLauncher scans the ROOT directory (not build/unzip_boot/)
+    # for vendor_boot.json to detect the image type and activate the right handler.
+    # Copy both JSON files to the boot_editor root where it expects them.
+    cp "${VENDOR_BOOT_PREBUILT}/vendor_boot.json"     "${BOOT_EDITOR_DIR}/vendor_boot.json"
+    cp "${VENDOR_BOOT_PREBUILT}/vendor_boot.avb.json" "${BOOT_EDITOR_DIR}/vendor_boot.avb.json"
+
     # Set JAVA_HOME to JDK 17+ (required by boot_editor)
     export JAVA_HOME="${JAVA_HOME_17_X64:-$JAVA_HOME}"
 }
