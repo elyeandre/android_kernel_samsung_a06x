@@ -213,3 +213,52 @@ For most use-cases flashing only `boot.img` via AP is sufficient — the rebuilt
 | Boot editor (CI-cloned) | `prebuilts_a06x/boot_editor/` (gitignored) |
 | Build output | `out/target/product/a06x/obj/KERNEL_OBJ/` |
 | Flashable images | `dist/` |
+
+---
+
+## Defconfig: direct edit vs config fragment overlay
+
+New kernel features (e.g. NetHunter, custom options) can be added in two ways.
+
+### Option A — edit `a06x_00_defconfig` directly (what we do)
+
+```bash
+# kernel-5.15/arch/arm64/configs/a06x_00_defconfig
+CONFIG_USB_HID=y
+CONFIG_TUN=y
+# ... add lines directly
+```
+
+Pros:
+- Simple — one file, no extra wiring
+- Already how Samsung ships the base config
+
+Cons:
+- Hard to tell Samsung stock lines from our additions at a glance
+- New Samsung OSRC drop → must manually re-diff and re-apply additions into the new defconfig
+- Can't build a variant without the feature without removing lines
+
+### Option B — config fragment overlay
+
+```bash
+# kernel-5.15/arch/arm64/configs/nethunter.config  (new file)
+CONFIG_USB_HID=y
+CONFIG_TUN=y
+
+# build.sh merges it on top of the base defconfig:
+./scripts/kconfig/merge_config.sh a06x_00_defconfig nethunter.config
+```
+
+Pros:
+- Additions are isolated — easy to see exactly what each feature needs
+- Samsung OSRC update → just re-apply the fragment on top, no manual diffing
+- Compose variants by combining fragments: `a06x_00_defconfig` + `kernelsu.config` + `nethunter.config`
+
+Cons:
+- Requires extra wiring in `build.sh` / `gen_build_config.py`
+
+### When to use which
+
+Since this repo has **one build variant** and full control over the defconfig, editing
+`a06x_00_defconfig` directly is the right call. The overlay pattern pays off when
+maintaining multiple devices or multiple build variants from the same source tree.
