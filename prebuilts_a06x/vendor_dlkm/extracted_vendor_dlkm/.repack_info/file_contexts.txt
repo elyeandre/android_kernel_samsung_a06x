@@ -1,0 +1,8 @@
+# SELinux file contexts for vendor_dlkm — A066BXXS3AYI3
+# Pattern format: path_regexp  context
+/                                       u:object_r:vendor_file:s0
+/etc                                    u:object_r:vendor_configs_file:s0
+/etc(/.*)?                              u:object_r:vendor_configs_file:s0
+/lib                                    u:object_r:vendor_file:s0
+/lib/modules                            u:object_r:vendor_file:s0
+/lib/modules(/.*)?                      u:object_r:vendor_file:s0

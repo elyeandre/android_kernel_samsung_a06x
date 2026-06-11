@@ -90,7 +90,7 @@ jobs:
       - name: Rebuild vendor_dlkm and vendor_boot
         if: steps.verify.outputs.image_found == 'true'
         run: |
-          sudo apt-get install -y erofs-utils lz4 2>/dev/null
+          sudo apt-get install -y erofs-utils 2>/dev/null
           bash prebuilts_a06x/scripts/build_vendor_dlkm.sh
           bash prebuilts_a06x/scripts/build_vendor_boot.sh
 

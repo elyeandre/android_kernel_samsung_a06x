@@ -139,6 +139,11 @@ prebuilts/
 # boot_editor — cloned at CI time, not stored in repo
 prebuilts_a06x/boot_editor/
 
+# Stock partition images — not stored in repo
+# vendor_dlkm: use prebuilts_a06x/vendor_dlkm/extracted_vendor_dlkm/
+# vendor_boot:  use prebuilts_a06x/vendor_boot/unzip_boot/
+stock_images/
+
 # IDE files
 .vscode/
 .idea/
