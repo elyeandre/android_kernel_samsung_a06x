@@ -21,8 +21,10 @@ OUTPUT_IMG="${REPO_ROOT}/dist/vendor_boot.img"
 MODULES_OUTPUT_DIR="${BOOT_EDITOR_DIR}/build/unzip_boot/root.1/lib/modules"
 
 setup_boot_editor() {
-    if [ ! -d "${BOOT_EDITOR_DIR}" ]; then
+    # Check for gradlew specifically — directory may exist but be empty
+    if [ ! -f "${BOOT_EDITOR_DIR}/gradlew" ]; then
         echo "[INFO] Cloning boot_editor v15_r1..."
+        rm -rf "${BOOT_EDITOR_DIR}"
         git clone --depth 1 --branch v15_r1 \
             https://github.com/cfig/Android_boot_image_editor.git \
             "${BOOT_EDITOR_DIR}"
