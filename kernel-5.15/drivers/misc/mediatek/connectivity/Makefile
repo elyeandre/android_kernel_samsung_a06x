@@ -81,6 +81,8 @@ ifneq ($(KERNELRELEASE),)
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/service/include
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/glue/osal/include
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/glue/hal/include
+        subdir-ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_ext/include
+        subdir-ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_ext/include/mgmt
         subdir-ccflags-y += -Wno-unused-variable -Wno-unused-but-set-variable
 
         # Build wmt_chrdev_wifi.ko by pointing to the correct subdirectory
