@@ -14,13 +14,25 @@ VENDOR_DLKM_MODULES_LIST="${LKM_TOOLS_DIR}/vendor_dlkm/modules_list.txt"
 VENDOR_BOOT_MODULES_LIST="${LKM_TOOLS_DIR}/vendor_boot/modules_list.txt"
 VENDOR_DLKM_MODULES_LOAD="${LKM_TOOLS_DIR}/vendor_dlkm/modules.load"
 WORK_DIR="${REPO_ROOT}/out/vendor_dlkm_work"
-MODULES_OUTPUT_DIR="${WORK_DIR}/lib/modules"
+
+# Separate dirs so LKM_Tools' internal rm -rf never touches the extracted image
+EXTRACT_DIR="${WORK_DIR}/extracted"     # full stock erofs extract (lib/ + etc/)
+MODULES_OUTPUT_DIR="${WORK_DIR}/modules_out"  # LKM_Tools writes modules here
+
 OUTPUT_IMG="${REPO_ROOT}/dist/vendor_dlkm.img"
 STOCK_IMG="${REPO_ROOT}/stock_images/vendor_dlkm.img"
 STOCK_TIMESTAMP=1757501825
 
+extract_stock() {
+    echo "[INFO] Extracting stock vendor_dlkm.img..."
+    rm -rf "${EXTRACT_DIR}"
+    # Extract the entire erofs image (lib/ and etc/ both land in EXTRACT_DIR)
+    fsck.erofs --extract="${EXTRACT_DIR}" "${STOCK_IMG}"
+}
+
 package_modules() {
-    mkdir -p "${MODULES_OUTPUT_DIR}"
+    # 03.prepare_vendor_dlkm.sh starts with rm -rf "$OUTPUT_DIR", so point it
+    # at MODULES_OUTPUT_DIR (isolated from EXTRACT_DIR).
     "${LKM_TOOLS_DIR}/03.prepare_vendor_dlkm.sh" \
         "${VENDOR_DLKM_MODULES_LIST}" \
         "${STAGING_DIR}" \
@@ -34,14 +46,19 @@ package_modules() {
 }
 
 repack_image() {
-    # Copy stock etc/ (build.prop, fs_config) alongside lib/
-    fsck.erofs --extract="${WORK_DIR}" "${STOCK_IMG}" -- etc/ 2>/dev/null || true
+    local modules_dir="${EXTRACT_DIR}/lib/modules"
+
+    # Replace stock modules with the freshly built + stripped set
+    rm -f "${modules_dir}"/*.ko "${modules_dir}"/modules.*
+    cp "${MODULES_OUTPUT_DIR}"/*.ko "${modules_dir}/"
+    cp "${MODULES_OUTPUT_DIR}"/modules.* "${modules_dir}/"
+
     mkdir -p "$(dirname "${OUTPUT_IMG}")"
-    mkfs.erofs -z lz4 -T ${STOCK_TIMESTAMP} "${OUTPUT_IMG}" "${WORK_DIR}"
+    mkfs.erofs -z lz4 -T ${STOCK_TIMESTAMP} "${OUTPUT_IMG}" "${EXTRACT_DIR}"
     echo "[INFO] vendor_dlkm.img -> ${OUTPUT_IMG} ($(du -h "${OUTPUT_IMG}" | cut -f1))"
 }
 
-{ package_modules && repack_image; } || {
+{ extract_stock && package_modules && repack_image; } || {
     echo "[ERROR] Failed to build vendor_dlkm"
     exit 1
 }
