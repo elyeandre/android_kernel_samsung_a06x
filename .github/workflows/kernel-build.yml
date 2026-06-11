@@ -91,9 +91,8 @@ jobs:
         if: steps.verify.outputs.image_found == 'true'
         run: |
           sudo apt-get install -y erofs-utils lz4 2>/dev/null
-          KO_DIR="out/target/product/a06x/obj/KERNEL_OBJ"
-          bash scripts/rebuild_vendor_dlkm.sh "$KO_DIR" dist/vendor_dlkm.img
-          bash scripts/rebuild_vendor_boot.sh "$KO_DIR" dist/vendor_boot.img
+          bash prebuilts_a06x/scripts/build_vendor_dlkm.sh
+          bash prebuilts_a06x/scripts/build_vendor_boot.sh
 
       - name: Package Odin flashable tar
         if: steps.verify.outputs.image_found == 'true'
