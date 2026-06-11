@@ -136,6 +136,9 @@ out/
 kernel/prebuilts/
 prebuilts/
 
+# boot_editor — cloned at CI time, not stored in repo
+prebuilts_a06x/boot_editor/
+
 # IDE files
 .vscode/
 .idea/

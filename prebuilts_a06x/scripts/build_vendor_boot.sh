@@ -6,6 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 LKM_TOOLS_DIR="${REPO_ROOT}/prebuilts_a06x/LKM_Tools"
 KBUILD_PATH="${REPO_ROOT}/out/target/product/a06x/obj/KERNEL_OBJ"
+BOOT_EDITOR_DIR="${REPO_ROOT}/prebuilts_a06x/boot_editor"
 
 STAGING_DIR="${KBUILD_PATH}/staging"
 SYSTEM_MAP="${KBUILD_PATH}/kernel-5.15/System.map"
@@ -15,22 +16,26 @@ VENDOR_BOOT_MODULES_LOAD="${LKM_TOOLS_DIR}/vendor_boot/modules.load"
 STOCK_IMG="${REPO_ROOT}/stock_images/vendor_boot.img"
 OUTPUT_IMG="${REPO_ROOT}/dist/vendor_boot.img"
 
-UNPACK_BOOTIMG="${REPO_ROOT}/prebuilts_a06x/mkbootimg/unpack_bootimg.py"
-MKBOOTIMG="${REPO_ROOT}/prebuilts_a06x/mkbootimg/mkbootimg.py"
+# boot_editor expects the source image named vendor_boot.img in its root
+# and LKM_Tools drops modules into build/unzip_boot/root.1/lib/modules/
+MODULES_OUTPUT_DIR="${BOOT_EDITOR_DIR}/build/unzip_boot/root.1/lib/modules"
 
-WORK_DIR="${REPO_ROOT}/out/vendor_boot_work"
-RAMDISK_DIR="${WORK_DIR}/ramdisk"
-MODULES_OUTPUT_DIR="${RAMDISK_DIR}/lib/modules"
+setup_boot_editor() {
+    if [ ! -d "${BOOT_EDITOR_DIR}" ]; then
+        echo "[INFO] Cloning boot_editor v15_r1..."
+        git clone --depth 1 --branch v15_r1 \
+            https://github.com/cfig/Android_boot_image_editor.git \
+            "${BOOT_EDITOR_DIR}"
+    fi
+    # Set JAVA_HOME to JDK 17 (required by boot_editor)
+    export JAVA_HOME="${JAVA_HOME_17_X64:-$JAVA_HOME}"
+}
 
 unpack_stock() {
-    rm -rf "${WORK_DIR}"
-    mkdir -p "${WORK_DIR}/unpacked" "${RAMDISK_DIR}"
-    python3 "${UNPACK_BOOTIMG}" \
-        --boot_img "${STOCK_IMG}" \
-        --out "${WORK_DIR}/unpacked" \
-        --format mkbootimg > "${WORK_DIR}/mkbootimg_args.txt"
-    lz4 -d "${WORK_DIR}/unpacked/vendor_ramdisk00" "${WORK_DIR}/ramdisk.cpio"
-    cd "${RAMDISK_DIR}" && cpio -idm < "${WORK_DIR}/ramdisk.cpio"
+    echo "[INFO] Placing stock vendor_boot.img into boot_editor..."
+    cp "${STOCK_IMG}" "${BOOT_EDITOR_DIR}/vendor_boot.img"
+    cd "${BOOT_EDITOR_DIR}"
+    ./gradlew unpack
     cd "${REPO_ROOT}"
 }
 
@@ -46,22 +51,15 @@ package_modules() {
 }
 
 repack_image() {
-    cd "${RAMDISK_DIR}"
-    find . | cpio -H newc -o > "${WORK_DIR}/ramdisk_new.cpio" 2>/dev/null
-    lz4 -l -9 "${WORK_DIR}/ramdisk_new.cpio" "${WORK_DIR}/vendor_ramdisk00_new"
-    cd "${REPO_ROOT}"
-
-    sed -i "s|${WORK_DIR}/unpacked/vendor_ramdisk00|${WORK_DIR}/vendor_ramdisk00_new|g" \
-        "${WORK_DIR}/mkbootimg_args.txt"
-
+    cd "${BOOT_EDITOR_DIR}"
+    ./gradlew pack
     mkdir -p "$(dirname "${OUTPUT_IMG}")"
-    eval python3 "${MKBOOTIMG}" \
-        --vendor_boot "${OUTPUT_IMG}" \
-        "$(cat "${WORK_DIR}/mkbootimg_args.txt")"
+    mv vendor_boot.img.signed "${OUTPUT_IMG}"
+    cd "${REPO_ROOT}"
     echo "[INFO] vendor_boot.img -> ${OUTPUT_IMG} ($(du -h "${OUTPUT_IMG}" | cut -f1))"
 }
 
-{ unpack_stock && package_modules && repack_image; } || {
+{ setup_boot_editor && unpack_stock && package_modules && repack_image; } || {
     echo "[ERROR] Failed to build vendor_boot"
     exit 1
 }
