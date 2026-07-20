@@ -87,6 +87,53 @@ jobs:
             -exec basename {} \; 2>/dev/null | sort -u > dist/built_modules.txt
           echo "[INFO] Found $(wc -l < dist/built_modules.txt) compiled modules"
 
+      - name: Package kernel modules (.ko) as zip
+        id: modzip
+        if: steps.build.outcome != 'cancelled'
+        run: |
+          set -euo pipefail
+          MODROOT="dist/modules"
+          rm -rf "$MODROOT"; mkdir -p "$MODROOT"
+          # Collect every compiled .ko (MT76x2U USB Wi-Fi stack + all others)
+          find out/target/product/a06x/obj/KERNEL_OBJ -name '*.ko' -print0 \
+            | xargs -0 -r cp -n -t "$MODROOT/" 2>/dev/null || true
+          COUNT=$(find "$MODROOT" -name '*.ko' | wc -l)
+          echo "[INFO] Collected ${COUNT} kernel modules"
+          if [[ "$COUNT" -eq 0 ]]; then
+            echo "[WARN] No .ko found — skipping modules zip"
+            echo "made=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Load-order + firmware hint for the MT76x2U USB Wi-Fi stack
+          printf '%s\n' \
+            "MT76x2U USB Wi-Fi (MT7612U) — insmod in this order:" \
+            "  cfg80211.ko" \
+            "  mac80211.ko" \
+            "  mt76.ko" \
+            "  mt76-usb.ko" \
+            "  mt76x02-lib.ko" \
+            "  mt76x02-usb.ko" \
+            "  mt76x2-common.ko" \
+            "  mt76x2u.ko" \
+            "" \
+            "Firmware required in /vendor/firmware (from linux-firmware):" \
+            "  mt7662.bin, mt7662_rom_patch.bin" \
+            > "$MODROOT/README-mt76x2u.txt"
+          NAME="${ARTIFACT_BASE}-${{ steps.tag.outputs.tag }}-modules"
+          (cd dist && zip -qr "../${NAME}.zip" modules)
+          echo "[OK] Created ${NAME}.zip (${COUNT} modules)"
+          echo "MODULES_ZIP=${NAME}.zip"      >> "$GITHUB_ENV"
+          echo "MODULES_ZIP_NAME=${NAME}"     >> "$GITHUB_ENV"
+          echo "made=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload modules zip
+        if: steps.modzip.outputs.made == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MODULES_ZIP_NAME }}
+          path: ${{ env.MODULES_ZIP }}
+          retention-days: 30
+
       - name: Rebuild vendor_dlkm and vendor_boot
         if: steps.verify.outputs.image_found == 'true'
         run: |
@@ -141,8 +188,14 @@ jobs:
 
             Flash `boot.img` (extracted from the archive) via Odin as **AP**.
 
+            Kernel modules (`.ko`) are attached separately as **`…-modules.zip`**,
+            including the **MT76x2U** USB Wi-Fi stack (MT7612U dongles).
+            See `README-mt76x2u.txt` inside for insmod order and required firmware.
+
             > ⚠️ Automated build — flash at your own risk.
-          files: ${{ env.ARCHIVE }}
+          files: |
+            ${{ env.ARCHIVE }}
+            ${{ env.MODULES_ZIP }}
           draft: false
           prerelease: false
         env:
