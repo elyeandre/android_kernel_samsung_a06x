@@ -134,6 +134,28 @@ jobs:
           path: ${{ env.MODULES_ZIP }}
           retention-days: 30
 
+      - name: Package MT76x2U KernelSU/Magisk module
+        id: ksumod
+        if: steps.build.outcome != 'cancelled'
+        run: |
+          NAME="${ARTIFACT_BASE}-${{ steps.tag.outputs.tag }}-mt76x2u-ksu-module"
+          if bash ksu_module/build_module_zip.sh "dist/${NAME}.zip"; then
+            echo "KSU_MODULE_ZIP=dist/${NAME}.zip" >> "$GITHUB_ENV"
+            echo "KSU_MODULE_NAME=${NAME}"          >> "$GITHUB_ENV"
+            echo "made=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "[WARN] MT76x2U module not packaged (mt76x2u.ko not built?)"
+            echo "made=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload MT76x2U KSU module
+        if: steps.ksumod.outputs.made == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.KSU_MODULE_NAME }}
+          path: ${{ env.KSU_MODULE_ZIP }}
+          retention-days: 30
+
       - name: Rebuild vendor_dlkm and vendor_boot
         if: steps.verify.outputs.image_found == 'true'
         run: |
@@ -192,10 +214,16 @@ jobs:
             including the **MT76x2U** USB Wi-Fi stack (MT7612U dongles).
             See `README-mt76x2u.txt` inside for insmod order and required firmware.
 
+            **`…-mt76x2u-ksu-module.zip`** is a flashable **KernelSU-Next / Magisk**
+            module: it bundles the mt76 stack + `mt7662` firmware and loads them
+            systemlessly (no `vendor` repack). Install in the KSU-Next manager and
+            reboot; plug the dongle after boot.
+
             > ⚠️ Automated build — flash at your own risk.
           files: |
             ${{ env.ARCHIVE }}
             ${{ env.MODULES_ZIP }}
+            ${{ env.KSU_MODULE_ZIP }}
           draft: false
           prerelease: false
         env:
