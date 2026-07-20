@@ -39,3 +39,11 @@ CONFIG_WLAN_DRV_MODULE=y
 CONFIG_MTK_BT_DRV_EXTERNAL=y
 CONFIG_MTK_GPS_DRV_EXTERNAL=y
 CONFIG_MTK_FM_DRV_EXTERNAL=y
+
+# MediaTek MT76x2U USB Wi-Fi — MT7612U 802.11ac dongles
+# Gate: stock config has WLAN_VENDOR_MEDIATEK off, which hides the whole mt76
+# Kconfig — must re-enable it or CONFIG_MT76x2U is silently dropped.
+CONFIG_WLAN_VENDOR_MEDIATEK=y
+# Must be =m: it depends on MAC80211, which is =m (a built-in can't depend on a module).
+# Auto-selects (via kconfig): MT76x2_COMMON, MT76x02_LIB, MT76_CORE, MT76x02_USB, MT76_USB
+CONFIG_MT76x2U=m
