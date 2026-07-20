@@ -1,0 +1,2 @@
+# Placeholder. CI (ksu_module/build_module_zip.sh) drops the MT7612U firmware
+# here (flat, as the driver requests them): mt7662.bin mt7662_rom_patch.bin

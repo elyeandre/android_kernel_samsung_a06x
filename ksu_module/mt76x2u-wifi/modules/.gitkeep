@@ -1,0 +1,3 @@
+# Placeholder. CI (ksu_module/build_module_zip.sh) drops the freshly-built
+# mt76 stack .ko here: cfg80211 mac80211 mt76 mt76-usb mt76x02-lib
+# mt76x02-usb mt76x2-common mt76x2u

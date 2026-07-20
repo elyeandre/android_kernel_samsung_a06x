@@ -1,0 +1,6 @@
+id=mt76x2u_wifi
+name=MT76x2U USB Wi-Fi (MT7612U)
+version=v1.0.0
+versionCode=1
+author=Jerickson Mayor
+description=Systemless MT76x2U (MT7612U) USB 802.11ac driver + mt7662 firmware for SM-A066B. Loads the mt76 stack at boot and registers its firmware via the kernel firmware_class path override. No metamodule/overlay required.
