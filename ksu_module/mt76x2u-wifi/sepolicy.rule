@@ -1,0 +1,18 @@
+# MT76x2U firmware — let the kernel read it from the module dir in ENFORCING mode.
+#
+# The kernel firmware loader (u:r:kernel:s0) reads mt7662*.bin directly from the
+# path in firmware_class.path. Files under /data/adb are not a type the kernel may
+# read by default (the exact denial seen on-device was kernel vs shell_data_file
+# for firmware under /data). service.sh relabels our firmware to
+# vendor_firmware_file (which the kernel already reads); these rules permit that
+# relabel and also cover the case where it does not stick.
+#
+# Tune against `dmesg | grep avc` if your device reports a different type.
+
+# read firmware whichever type it ends up with
+allow kernel vendor_firmware_file file { open read getattr }
+allow kernel adb_data_file file { open read getattr }
+
+# permit service.sh's chcon (relabel) to vendor_firmware_file
+allow init adb_data_file file relabelfrom
+allow init vendor_firmware_file file relabelto

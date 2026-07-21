@@ -22,9 +22,12 @@ SEARCH_DIRS=("${KBUILD}/staging" "${KBUILD}")
 KOS=(cfg80211 mac80211 mt76 mt76-usb mt76x02-lib mt76x02-usb mt76x2-common mt76x2u)
 
 # linux-firmware: files live under mediatek/ but the driver opens the bare
-# names, so download from mediatek/ and store flat.
+# names, so download from mediatek/ and store flat. The USB-specific mt7662u.*
+# variants are the ones verified working on the MT7612U (CF-WU785AC), so fall
+# back to them (saved under the requested non-u name) if the plain file is gone.
 FW_BASE="https://gitlab.com/kernel-firmware/linux-firmware/-/raw/main/mediatek"
 FW_FILES=(mt7662.bin mt7662_rom_patch.bin)
+declare -A FW_ALT=([mt7662.bin]=mt7662u.bin [mt7662_rom_patch.bin]=mt7662u_rom_patch.bin)
 
 find_ko() {
     local ko="$1" d src
@@ -64,11 +67,14 @@ fi
 
 echo "[*] Fetching MT7612U firmware from linux-firmware..."
 for fw in "${FW_FILES[@]}"; do
-    if curl -fsSL --retry 3 --retry-delay 2 "${FW_BASE}/${fw}" -o "$STAGE/firmware/${fw}"; then
-        echo "    + firmware/${fw} ($(stat -c%s "$STAGE/firmware/${fw}" 2>/dev/null || echo '?') bytes)"
+    dst="$STAGE/firmware/${fw}"
+    if curl -fsSL --retry 3 --retry-delay 2 "${FW_BASE}/${fw}" -o "$dst"; then
+        echo "    + firmware/${fw} ($(stat -c%s "$dst" 2>/dev/null || echo '?') bytes)"
+    elif curl -fsSL --retry 3 --retry-delay 2 "${FW_BASE}/${FW_ALT[$fw]}" -o "$dst"; then
+        echo "    + firmware/${fw} (from ${FW_ALT[$fw]}, $(stat -c%s "$dst" 2>/dev/null || echo '?') bytes)"
     else
-        echo "    ! could not fetch ${fw} — shipping module without it" >&2
-        rm -f "$STAGE/firmware/${fw}"
+        echo "    ! could not fetch ${fw} or ${FW_ALT[$fw]} — shipping without it" >&2
+        rm -f "$dst"
     fi
 done
 

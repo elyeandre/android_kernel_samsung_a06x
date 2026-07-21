@@ -28,6 +28,18 @@ else
     say "WARN: $FWP missing (CONFIG_FW_LOADER not exposing path?)"
 fi
 
+# 1b) Relabel the firmware so the kernel domain (u:r:kernel:s0) may read it in
+#     ENFORCING mode. Files under /data/adb are not a type the kernel can read,
+#     so without this the load only works under `setenforce 0`. vendor_firmware_file
+#     is a type the kernel already reads for normal firmware. Backed by sepolicy.rule.
+if [ -d "$MODDIR/firmware" ]; then
+    if chcon -R u:object_r:vendor_firmware_file:s0 "$MODDIR/firmware" 2>/dev/null; then
+        say "firmware relabeled -> vendor_firmware_file"
+    else
+        say "WARN: chcon firmware failed (check dmesg | grep avc; see sepolicy.rule)"
+    fi
+fi
+
 # 2) Load the mt76 stack in dependency order. cfg80211 is usually already
 #    resident; mac80211 usually is NOT on MTK (connac is fullmac). Errors from
 #    already-loaded modules are ignored.
@@ -41,5 +53,34 @@ for ko in cfg80211 mac80211 mt76 mt76-usb mt76x02-lib mt76x02-usb \
         say "insmod $ko: skipped (already loaded or missing dep)"
     fi
 done
+
+# 3) Bind an adapter that was already plugged in before the driver loaded.
+#    (A hotplug AFTER boot auto-probes; a dongle present at boot stays on the
+#    generic usb driver until we bind its interface explicitly.) Requires the
+#    device to be in Wi-Fi mode already (0e8d:7612/7632) — the in-kernel
+#    unusual_devs.h eject handles the 2870->7612 switch on this kernel.
+DRV=/sys/bus/usb/drivers/mt76x2u
+if [ -d "$DRV" ]; then
+    for dev in /sys/bus/usb/devices/*; do
+        [ -f "$dev/idVendor" ] || continue
+        [ "$(cat "$dev/idVendor" 2>/dev/null)" = "0e8d" ] || continue
+        case "$(cat "$dev/idProduct" 2>/dev/null)" in 7612|7632) ;; *) continue ;; esac
+        for intf in "$dev":*; do
+            [ -e "$intf" ] || continue
+            ifn=$(basename "$intf")
+            [ -e "$DRV/$ifn" ] && { say "already bound: $ifn"; continue; }
+            if [ -L "$intf/driver" ]; then
+                cur=$(basename "$(readlink "$intf/driver")")
+                [ "$cur" = "mt76x2u" ] && continue
+                printf '%s' "$ifn" > "/sys/bus/usb/drivers/$cur/unbind" 2>/dev/null
+            fi
+            if printf '%s' "$ifn" > "$DRV/bind" 2>/dev/null; then
+                say "bound $ifn -> mt76x2u"
+            else
+                say "bind $ifn failed (enforcing SELinux? check dmesg avc)"
+            fi
+        done
+    done
+fi
 
 say "done — resident mt76 modules: $(lsmod 2>/dev/null | grep -c '^mt76')"
