@@ -37,3 +37,9 @@ int usb_stor_ucr61s2b_init(struct us_data *us);
 
 /* This places the HUAWEI E220 devices in multi-port mode */
 int usb_stor_huawei_e220_init(struct us_data *us);
+
+/*
+ * MediaTek MT762x ZeroCD: eject to switch from the mass-storage installer
+ * (0x0e8d:0x2870) to Wi-Fi mode (0x7612/0x7632), for mt76x2u.
+ */
+int usb_stor_mt762x_init(struct us_data *us);

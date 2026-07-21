@@ -92,3 +92,45 @@ int usb_stor_huawei_e220_init(struct us_data *us)
 	usb_stor_dbg(us, "Huawei mode set result is %d\n", result);
 	return 0;
 }
+
+/*
+ * MediaTek MT762x "ZeroCD" mode switch.
+ *
+ * MT7612U/MT7632U Wi-Fi adapters (Comfast CF-WU785AC, Alfa AWUS036ACM, ...)
+ * first enumerate as a USB mass-storage/CD-ROM installer at 0x0e8d:0x2870.
+ * Sending a SCSI START STOP UNIT (eject) makes them drop off the bus and
+ * re-appear as the Wi-Fi device (0x0e8d:0x7612 or 0x7632), which mt76x2u then
+ * binds. This is the in-kernel equivalent of `usb_modeswitch -K` (standard
+ * eject), so no userspace mode-switch tool is required on Android.
+ */
+int usb_stor_mt762x_init(struct us_data *us)
+{
+	struct bulk_cb_wrap *bcb = (struct bulk_cb_wrap *) us->iobuf;
+	struct bulk_cs_wrap *bcs = (struct bulk_cs_wrap *) us->iobuf;
+	unsigned int partial;
+	int res;
+
+	usb_stor_dbg(us, "Sending MediaTek MT762x eject (ZeroCD mode switch)...\n");
+
+	memset(bcb, 0, sizeof(*bcb));
+	bcb->Signature = cpu_to_le32(US_BULK_CB_SIGN);
+	bcb->DataTransferLength = cpu_to_le32(0);
+	bcb->Length = 6;
+	/* SCSI START STOP UNIT, LOEJ=1 START=0 -> eject the virtual CD */
+	bcb->CDB[0] = 0x1b;
+	bcb->CDB[4] = 0x02;
+
+	res = usb_stor_bulk_transfer_buf(us, us->send_bulk_pipe, bcb,
+			US_BULK_CB_WRAP_LEN, &partial);
+	if (res)
+		return -EIO;
+
+	/*
+	 * Best-effort status read: the adapter usually disconnects immediately
+	 * after accepting the eject, so a failure here is expected and ignored.
+	 */
+	usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe, bcs,
+			US_BULK_CS_WRAP_LEN, &partial);
+
+	return 0;
+}

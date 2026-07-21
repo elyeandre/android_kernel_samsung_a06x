@@ -1563,6 +1563,18 @@ UNUSUAL_DEV( 0x0e21, 0x0520, 0x0100, 0x0100,
 		USB_SC_DEVICE, USB_PR_BULK, NULL,
 		US_FL_NEED_OVERRIDE ),
 
+/*
+ * MediaTek MT762x "ZeroCD" Wi-Fi adapters (MT7612U/MT7632U: Comfast
+ * CF-WU785AC, Alfa AWUS036ACM, ...) enumerate as a mass-storage installer.
+ * Eject them to switch to Wi-Fi mode (0x7612/0x7632) so mt76x2u can bind.
+ * In-kernel equivalent of `usb_modeswitch -K`. Verified on SM-A066B.
+ */
+UNUSUAL_DEV(  0x0e8d, 0x2870, 0x0000, 0x9999,
+		"MediaTek",
+		"MT762x ZeroCD",
+		USB_SC_DEVICE, USB_PR_DEVICE, usb_stor_mt762x_init,
+		0 ),
+
 /* Submitted by Antoine Mairesse <antoine.mairesse@free.fr> */
 UNUSUAL_DEV( 0x0ed1, 0x6660, 0x0100, 0x0300,
 		"USB",
