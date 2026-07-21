@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Cross-compile STATIC wpa_supplicant + wpa_cli for aarch64 Android using the NDK.
+#
+# Mirrors the on-device Termux recipe (docs/wpa_supplicant_static_termux.md) but
+# with the NDK's clean sysroot, so it's reproducible in CI. libnl is baked in;
+# the binaries link only bionic system libs (libc/libdl).
+#
+# Usage: ksu_module/build_wpa_supplicant.sh [output_dir]
+#   default output_dir: dist/wpa
+set -euo pipefail
+
+NDK_VERSION="${NDK_VERSION:-r26d}"
+API="${API:-24}"
+LIBNL_VER="3.7.0"
+WPA_VER="2.11"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+WORK="${WORK:-${REPO_ROOT}/out/wpa-build}"
+OUTDIR="${1:-${REPO_ROOT}/dist/wpa}"
+NDK_HOME="${WORK}/android-ndk-${NDK_VERSION}"
+NL_PREFIX="${WORK}/nl-static"
+
+mkdir -p "$WORK"
+cd "$WORK"
+
+# ---------------------------------------------------------------- NDK toolchain
+if [ ! -d "$NDK_HOME" ]; then
+    echo "[*] Downloading Android NDK ${NDK_VERSION}..."
+    curl -L --retry 3 -o ndk.zip \
+        "https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip"
+    unzip -q ndk.zip && rm -f ndk.zip
+fi
+TC="${NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+export CC="${TC}/aarch64-linux-android${API}-clang"
+export AR="${TC}/llvm-ar"
+export RANLIB="${TC}/llvm-ranlib"
+[ -x "$CC" ] || { echo "[ERROR] NDK clang not found at $CC" >&2; exit 1; }
+
+# Guard: if this sysroot also lacks the in_addr_t/in_port_t typedefs (the Termux
+# quirk), add the -D fallback; otherwise leave it off so we don't double-typedef.
+FIX=""
+if ! printf '#include <netinet/in.h>\nin_addr_t a; in_port_t p;\n' \
+        | "$CC" -x c -c - -o /dev/null 2>/dev/null; then
+    FIX="-Din_addr_t=uint32_t -Din_port_t=uint16_t"
+    echo "[*] sysroot lacks in_addr_t/in_port_t -> using: $FIX"
+else
+    echo "[*] sysroot declares in_addr_t/in_port_t -> no -D fallback needed"
+fi
+
+# ------------------------------------------------------------- static libnl 3.7
+if [ ! -f "${NL_PREFIX}/lib/libnl-3.a" ]; then
+    echo "[*] Building static libnl ${LIBNL_VER}..."
+    [ -d "libnl-${LIBNL_VER}" ] || {
+        curl -L --retry 3 -o libnl.tar.gz \
+            "https://github.com/thom311/libnl/releases/download/libnl3_7_0/libnl-${LIBNL_VER}.tar.gz"
+        tar xf libnl.tar.gz
+    }
+    ( cd "libnl-${LIBNL_VER}"
+      ./configure --host=aarch64-linux-android --prefix="${NL_PREFIX}" \
+          --enable-static --disable-shared --disable-cli \
+          CC="$CC" AR="$AR" RANLIB="$RANLIB" CPPFLAGS="$FIX"
+      make -j"$(nproc)"
+      make install )
+fi
+
+# ------------------------------------------------------- static wpa_supplicant
+echo "[*] Building static wpa_supplicant + wpa_cli ${WPA_VER}..."
+[ -d "wpa_supplicant-${WPA_VER}" ] || {
+    curl -L --retry 3 -o wpa.tar.gz "https://w1.fi/releases/wpa_supplicant-${WPA_VER}.tar.gz"
+    tar xf wpa.tar.gz
+}
+cd "wpa_supplicant-${WPA_VER}/wpa_supplicant"
+
+# WPA2/WPA3-PSK, internal crypto (no OpenSSL), no SAE (needs OpenSSL EC), static libnl.
+cat > .config <<EOF
+CONFIG_DRIVER_NL80211=y
+CONFIG_LIBNL32=y
+CONFIG_CTRL_IFACE=y
+CONFIG_BACKEND=file
+CONFIG_TLS=internal
+CONFIG_INTERNAL_LIBTOMMATH=y
+CONFIG_WPA=y
+CONFIG_IEEE80211W=y
+CONFIG_WPA_CLI_EDIT=y
+CFLAGS += -I${NL_PREFIX}/include/libnl3 ${FIX}
+LIBS   += -L${NL_PREFIX}/lib -Wl,-Bstatic -lnl-genl-3 -lnl-3 -Wl,-Bdynamic
+EOF
+
+make clean >/dev/null 2>&1 || true
+make -j"$(nproc)" CC="$CC" AR="$AR" wpa_supplicant wpa_cli
+
+# ----------------------------------------------------------------- collect/verify
+mkdir -p "$OUTDIR"
+cp wpa_supplicant wpa_cli "$OUTDIR/"
+"${TC}/llvm-strip" "$OUTDIR/wpa_supplicant" "$OUTDIR/wpa_cli" 2>/dev/null || true
+echo "== wpa_supplicant NEEDED (want: libc.so, libdl.so only) =="
+"${TC}/llvm-readelf" -d "$OUTDIR/wpa_supplicant" | grep NEEDED || true
+if "${TC}/llvm-readelf" -d "$OUTDIR/wpa_supplicant" | grep -q 'libnl'; then
+    echo "[ERROR] wpa_supplicant still links libnl dynamically" >&2
+    exit 1
+fi
+echo "[OK] static binaries -> $OUTDIR"
+ls -la "$OUTDIR"

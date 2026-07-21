@@ -124,8 +124,12 @@ That's the only piece this build drops. It requires OpenSSL (or wolfSSL) for the
 EC math, static-linked — a separate, bigger effort on this Termux. WPA2-PSK is
 what almost every network uses.
 
-## Reproducible/CI version
-This doc is the on-device method. A cleaner NDK cross-compile can be wired into
-CI to emit these binaries per build and bundle them into the `mt76x2u-wifi`
-module — the NDK sysroot has none of the `in_addr_t` weirdness, so it needs no
-`-D` hacks. Not yet implemented.
+## Reproducible/CI version (implemented)
+This doc is the on-device method. The reproducible equivalent is
+[`ksu_module/build_wpa_supplicant.sh`](../ksu_module/build_wpa_supplicant.sh),
+an NDK cross-compile run by the **"Static wpa_supplicant · wlan1"** workflow
+(`.github/workflows/wpa-supplicant.yml`, `workflow_dispatch`). It uses the same
+libnl+wpa recipe against the NDK sysroot, auto-detecting whether the `in_addr_t`
+`-D` fallback is needed, and uploads `wpa_supplicant`/`wpa_cli` as an artifact.
+Drop them into `ksu_module/mt76x2u-wifi/bin/` (with the bundled `wifi-connect.sh
+<SSID> [PSK]` helper) and `build_module_zip.sh` will include them in the module.

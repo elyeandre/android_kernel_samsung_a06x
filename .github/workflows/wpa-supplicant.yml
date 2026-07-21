@@ -1,0 +1,51 @@
+name: Static wpa_supplicant · wlan1 (aarch64)
+
+# Separate from the kernel build so it never lengthens it. Runs on demand and
+# when its own inputs change.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feat/vendor-dlkm-rebuild]
+    paths:
+      - "ksu_module/build_wpa_supplicant.sh"
+      - ".github/workflows/wpa-supplicant.yml"
+
+permissions:
+  contents: read
+
+env:
+  NDK_VERSION: r26d
+
+jobs:
+  build:
+    name: NDK cross-compile
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential flex bison pkg-config unzip curl
+
+      - name: Cache NDK
+        uses: actions/cache@v4
+        with:
+          path: out/wpa-build/android-ndk-${{ env.NDK_VERSION }}
+          key: ndk-${{ env.NDK_VERSION }}
+
+      - name: Build static wpa_supplicant + wpa_cli
+        run: bash ksu_module/build_wpa_supplicant.sh "$PWD/dist/wpa"
+
+      - name: Show results
+        run: |
+          file dist/wpa/wpa_supplicant dist/wpa/wpa_cli
+          ls -la dist/wpa/
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: wpa_supplicant-wlan1-aarch64
+          path: dist/wpa/*
+          retention-days: 30

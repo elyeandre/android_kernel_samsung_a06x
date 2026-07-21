@@ -1,0 +1,4 @@
+# Placeholder. Static wpa_supplicant + wpa_cli land here.
+# CI: the "Static wpa_supplicant" workflow builds them (downloadable artifact).
+# Local combined module: run ksu_module/build_wpa_supplicant.sh with this dir as
+# the output, then ksu_module/build_module_zip.sh bundles them into the zip.

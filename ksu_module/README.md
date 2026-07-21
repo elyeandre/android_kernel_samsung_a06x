@@ -9,17 +9,29 @@ reasoning are in [`docs/kernelsu_firmware_module_install.md`](../docs/kernelsu_f
 ```
 ksu_module/
 ├── build_module_zip.sh          # packs the flashable zip (CI + local)
+├── build_wpa_supplicant.sh      # NDK cross-compile: static wpa_supplicant + wpa_cli
 └── mt76x2u-wifi/                # module source template
     ├── module.prop
     ├── service.sh              # late_start: firmware path + insmod the stack
     ├── customize.sh            # install-time perms + sanity checks
+    ├── wifi-connect.sh         # helper: wifi-connect.sh <SSID> [PSK] on wlan1
     ├── META-INF/…/update-binary # Magisk/recovery installer (ignored by KSU)
     ├── modules/  (.gitkeep)    # CI fills with the built .ko
-    └── firmware/ (.gitkeep)    # CI fills with mt7662*.bin
+    ├── firmware/ (.gitkeep)    # CI fills with mt7662*.bin
+    └── bin/      (.gitkeep)    # optional: static wpa_supplicant/wpa_cli
 ```
 
 The `modules/` and `firmware/` dirs ship empty in git; the template zip refuses
 to install (see `customize.sh`). Only the **CI-built** zip is flashable.
+
+## Station mode (optional)
+
+The vendor `wpa_supplicant` is HAL-locked, so a standalone static build is used
+for `wlan1`. `build_wpa_supplicant.sh` (NDK cross-compile) produces static
+`wpa_supplicant`/`wpa_cli`; the **"Static wpa_supplicant · wlan1"** workflow runs
+it and uploads them as an artifact. Drop them in `mt76x2u-wifi/bin/` and they're
+bundled into the module zip, with `wifi-connect.sh <SSID> [PSK]` to associate.
+On-device build recipe: [`docs/wpa_supplicant_static_termux.md`](../docs/wpa_supplicant_static_termux.md).
 
 ## How it works (script-based, no metamodule)
 
