@@ -259,7 +259,46 @@ Notes / caveats:
 
 ---
 
-## 6. Sources
+## 6. Verified end-to-end on real hardware (SM-A066B + Comfast CF-WU785AC)
+
+A full bring-up of an MT7612U dongle confirmed the design and refined it:
+
+**What was confirmed**
+- **`firmware_class.path` works; the `/vendor/firmware` overlay does not.** On this
+  device `/vendor/firmware/mediatek/` does not exist, so magic-mount has nothing to
+  anchor and the overlay route is a dead end — exactly why §4A is the default.
+- The path is **preset to `/vendor/firmware,/efs/wifi`**, so `service.sh` must
+  read-modify-write (prepend), never clobber. Confirmed.
+- The driver requests **`mt7662.bin` / `mt7662_rom_patch.bin`** (flat, no `u`, no
+  `mediatek/`). The USB-specific `mt7662u.*` contents work fine under those names,
+  so the packager fetches the plain names and falls back to the `u` variants.
+
+**Three refinements now baked into the module + kernel**
+1. **USB mode-switch is a prerequisite.** The dongle first enumerates as
+   `0e8d:2870` (ZeroCD mass-storage installer) and must be ejected to `0e8d:7612`
+   before anything binds. Instead of a hand-built on-device `usb_modeswitch`, an
+   in-kernel eject entry was added:
+   `drivers/usb/storage/{unusual_devs.h,initializers.c,initializers.h}` →
+   `usb_stor_mt762x_init()` sends the SCSI START STOP UNIT eject at probe (the
+   `usb_modeswitch -K` equivalent). After a kernel rebuild, plug-in auto-switches.
+2. **SELinux (enforcing).** `request_firmware` from `u:r:kernel:s0` cannot read
+   files under `/data` by default (observed denial: kernel vs `shell_data_file`).
+   `service.sh` `chcon`s the bundled firmware to `vendor_firmware_file` and the
+   module ships a `sepolicy.rule`, so no `setenforce 0` is needed.
+3. **Already-plugged adapter doesn't auto-probe.** A hotplug after boot probes
+   itself, but a dongle present when the driver loads stays on the generic `usb`
+   driver. `service.sh` now scans for `0e8d:7612/7632` and writes the interface to
+   `…/mt76x2u/bind`.
+
+**Userspace note (out of module scope):** the vendor
+`/vendor/bin/hw/wpa_supplicant` is HAL-locked (`hal_wifi_supplicant_default_exec`)
+and won't run standalone. Station-mode scanning + monitor mode were validated by
+running a **standard `wpa_supplicant` (v2.10) inside a Droidspaces container in
+Host-network mode**, with `wlan1` directly visible. `tcpdump` confirmed raw 802.11
+capture; `airodump-ng`/`wifite` failed on a known Ubuntu-vs-Kali `PACKET_MR_PROMISC`
+tooling gap, not a driver issue.
+
+## 7. Sources
 
 - KernelSU — Module guide: <https://kernelsu.org/guide/module.html>
 - KernelSU — Metamodule: <https://kernelsu.org/guide/metamodule.html>
