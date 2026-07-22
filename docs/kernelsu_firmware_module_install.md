@@ -273,13 +273,19 @@ A full bring-up of an MT7612U dongle confirmed the design and refined it:
   so the packager fetches the plain names and falls back to the `u` variants.
 
 **Three refinements now baked into the module + kernel**
-1. **USB mode-switch is a prerequisite.** The dongle first enumerates as
-   `0e8d:2870` (ZeroCD mass-storage installer) and must be ejected to `0e8d:7612`
-   before anything binds. Instead of a hand-built on-device `usb_modeswitch`, an
-   in-kernel eject entry was added:
+1. **USB mode-switch — solved in-kernel (VERIFIED ON DEVICE).** The dongle first
+   enumerates as `0e8d:2870` (ZeroCD mass-storage installer) and must be ejected
+   to `0e8d:7612` before anything binds. Instead of a hand-built on-device
+   `usb_modeswitch`, an in-kernel eject entry was added:
    `drivers/usb/storage/{unusual_devs.h,initializers.c,initializers.h}` →
    `usb_stor_mt762x_init()` sends the SCSI START STOP UNIT eject at probe (the
-   `usb_modeswitch -K` equivalent). After a kernel rebuild, plug-in auto-switches.
+   `usb_modeswitch -K` equivalent).
+
+   Confirmed working: plugging the adapter in now enumerates straight to
+   `0e8d:7612`, no userspace step. **This obsoletes the entire `usb_modeswitch`
+   toolchain** — the Termux libusb build, the static `usb_modeswitch` binary and
+   the `-v 0x0e8d -p 0x2870 -V 0x0e8d -P 0x7612 -K -W` invocation are all
+   unnecessary. Verify with `lsusb` after plugging in.
 2. **SELinux (enforcing).** `request_firmware` from `u:r:kernel:s0` cannot read
    files under `/data` by default (observed denial: kernel vs `shell_data_file`).
    `service.sh` `chcon`s the bundled firmware to `vendor_firmware_file` and the
