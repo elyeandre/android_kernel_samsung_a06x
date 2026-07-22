@@ -198,6 +198,23 @@ static int netdev_event(struct notifier_block *nb,
 	}
 #endif /* CFG_SUPPORT_PASSPOINT */
 
+	/*
+	 * The name-prefix test above is NOT sufficient to prove this net_device
+	 * belongs to us: other drivers create wlanN interfaces too (e.g. mt76 for
+	 * an external MT7612U USB adapter -> wlan1). Their netdev_priv() is not a
+	 * GLUE_INFO pointer, so the deref below yields a garbage - but non-NULL -
+	 * value that survives the check and then panics the kernel in
+	 * kalSetNetAddressFromInterface() on any "ip addr add".
+	 * Only handle wlanN devices this driver actually created.
+	 */
+	if (strncmp(prDev->name, "wlan", 4) == 0 &&
+	    prDev->netdev_ops != wlanGetNdevOps()) {
+		DBGLOG(REQ, INFO,
+		       "netdev_event: %s is not ours, skipping.\n",
+		       prDev->name);
+		return NOTIFY_DONE;
+	}
+
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prDev));
 	if (prGlueInfo == NULL) {
 		DBGLOG(REQ, INFO, "netdev_event: prGlueInfo is empty.\n");
