@@ -31,6 +31,13 @@ KMI_LOCALVERSION="${KMI_LOCALVERSION:--android13-8-30546824}"
 printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="%s"\n' "${KMI_LOCALVERSION}" \
     > "${WDIR}/custom_defconfigs/version_defconfig"
 
+# Branding that is SAFE for the KMI: these only feed LINUX_COMPILE_BY/HOST in
+# init/version.c (i.e. /proc/version and `uname -a`). vermagic is built from
+# UTS_RELEASE alone, so these never affect module loading — unlike
+# CONFIG_LOCALVERSION above.
+export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-elyeandre}"
+export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-a06x}"
+
 # ============================================================================
 # Print Banner
 # ============================================================================
