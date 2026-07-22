@@ -12,6 +12,17 @@
 # read firmware whichever type it ends up with
 allow kernel vendor_firmware_file file { open read getattr }
 allow kernel adb_data_file file { open read getattr }
+
+# The kernel must also TRAVERSE every directory on the way to the file, not just
+# read the file itself. Missing these is why the load failed with -13 (EACCES)
+# while `setenforce 0` worked:
+#   /data                                    -> system_data_file
+#   /data/adb/modules/<id>/firmware/         -> adb_data_file
+# Note the chcon in service.sh relabels the FILES; the parent directories keep
+# their own type, so both are needed.
+allow kernel system_data_file dir search
+allow kernel adb_data_file dir { search open read getattr }
+allow kernel vendor_firmware_file dir { search open read getattr }
 # manual flow: firmware staged in /data/local/tmp/firmware (shell_data_file).
 # This is the denial seen on-device with `setenforce 0` as the workaround.
 allow kernel shell_data_file file { open read getattr }
