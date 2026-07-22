@@ -40,11 +40,11 @@ if [ -d "$MODDIR/firmware" ]; then
     fi
 fi
 
-# 2) Load the mt76 stack in dependency order. cfg80211 is usually already
-#    resident; mac80211 usually is NOT on MTK (connac is fullmac). Errors from
-#    already-loaded modules are ignored.
-for ko in cfg80211 mac80211 mt76 mt76-usb mt76x02-lib mt76x02-usb \
-          mt76x2-common mt76x2u; do
+# 2) Load the mt76 stack in dependency order. cfg80211/mac80211 are NOT loaded
+#    here — they are already resident on the device (the stock wlan_drv_gen4m
+#    pulls cfg80211 in), and loading duplicates risks a version mismatch.
+#    Errors from already-loaded modules are ignored.
+for ko in mt76 mt76-usb mt76x02-lib mt76x02-usb mt76x2-common mt76x2u; do
     KO="$MODDIR/modules/$ko.ko"
     [ -f "$KO" ] || continue
     if insmod "$KO" 2>/dev/null; then

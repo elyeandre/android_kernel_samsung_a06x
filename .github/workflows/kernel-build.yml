@@ -107,14 +107,14 @@ jobs:
           # Load-order + firmware hint for the MT76x2U USB Wi-Fi stack
           printf '%s\n' \
             "MT76x2U USB Wi-Fi (MT7612U) — insmod in this order:" \
-            "  cfg80211.ko" \
-            "  mac80211.ko" \
             "  mt76.ko" \
             "  mt76-usb.ko" \
             "  mt76x02-lib.ko" \
             "  mt76x02-usb.ko" \
             "  mt76x2-common.ko" \
             "  mt76x2u.ko" \
+            "" \
+            "(cfg80211/mac80211 are already resident on the device.)" \
             "" \
             "Firmware required in /vendor/firmware (from linux-firmware):" \
             "  mt7662.bin, mt7662_rom_patch.bin" \

@@ -18,8 +18,11 @@ OUT_ZIP="${1:-${REPO_ROOT}/dist/mt76x2u-ksu-module.zip}"
 # raw object tree. (Signing is not enforced on this kernel, but prefer signed.)
 SEARCH_DIRS=("${KBUILD}/staging" "${KBUILD}")
 
-# mt76 stack in dependency order (see mt76x2u-wifi/service.sh)
-KOS=(cfg80211 mac80211 mt76 mt76-usb mt76x02-lib mt76x02-usb mt76x2-common mt76x2u)
+# mt76 stack in dependency order (see mt76x2u-wifi/service.sh).
+# cfg80211/mac80211 are deliberately NOT bundled — they are already resident on
+# the device (the stock wlan_drv_gen4m uses cfg80211), and shipping duplicates
+# risks version-mismatched copies.
+KOS=(mt76 mt76-usb mt76x02-lib mt76x02-usb mt76x2-common mt76x2u)
 
 # linux-firmware: files live under mediatek/ but the driver opens the bare
 # names, so download from mediatek/ and store flat. The USB-specific mt7662u.*
@@ -80,6 +83,9 @@ done
 
 echo "[*] Zipping module (module.prop at root)..."
 mkdir -p "$(dirname "$OUT_ZIP")"
+# Resolve to an absolute path: we cd into $STAGE below, which would break a
+# relative output path (as passed by CI).
+OUT_ZIP="$(cd "$(dirname "$OUT_ZIP")" && pwd)/$(basename "$OUT_ZIP")"
 rm -f "$OUT_ZIP"
 ( cd "$STAGE" && zip -qr "$OUT_ZIP" . -x '*.gitkeep' )
 echo "[OK] $OUT_ZIP"

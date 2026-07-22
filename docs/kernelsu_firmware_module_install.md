@@ -160,19 +160,17 @@ first-class signed module regardless. No `sig_enforce`, no tainting concerns.
 
 ### insmod vs modprobe & load order
 A bare module dir has no `modules.dep`, so use **`insmod` in dependency order**.
-On MTK, `cfg80211` is usually already up (the stock `wlan_drv_gen4m` uses it) but
-**`mac80211` is typically NOT loaded** (connac is fullmac). So load the whole
-chain idempotently:
+`cfg80211`/`mac80211` are **already resident** on the device (the stock
+`wlan_drv_gen4m` pulls them in) — do **not** bundle or load duplicates, which
+would risk a version mismatch. Load only the mt76 stack:
 
 ```
-cfg80211.ko → mac80211.ko → mt76.ko → mt76-usb.ko → mt76x02-lib.ko
+mt76.ko → mt76-usb.ko → mt76x02-lib.ko
 → mt76x02-usb.ko → mt76x2-common.ko → mt76x2u.ko
 ```
 
 All must share the **running kernel's vermagic** — which they do, since they come
-out of the same build (this is exactly why `feat/vendor-dlkm-rebuild` rebuilds
-`cfg80211`/`mac80211` too). Bundle matching copies in the module and ignore
-"File exists" for already-loaded ones.
+out of the same build. Errors from already-loaded modules are ignored.
 
 ---
 
@@ -208,8 +206,8 @@ mt76x2u-wifi/
 │   ├── mt7662.bin
 │   └── mt7662_rom_patch.bin
 └── modules/
-    ├── cfg80211.ko  mac80211.ko  mt76.ko  mt76-usb.ko
-    ├── mt76x02-lib.ko  mt76x02-usb.ko  mt76x2-common.ko
+    ├── mt76.ko  mt76-usb.ko  mt76x02-lib.ko
+    ├── mt76x02-usb.ko  mt76x2-common.ko
     └── mt76x2u.ko
 ```
 
@@ -237,9 +235,10 @@ case ",$CUR," in
   *) echo "$MODDIR/firmware${CUR:+,$CUR}" > "$FWP" ;;  # prepend
 esac
 
-# 2) Load the stack in dependency order; ignore "already loaded".
-for ko in cfg80211 mac80211 mt76 mt76-usb mt76x02-lib mt76x02-usb \
-          mt76x2-common mt76x2u; do
+# 2) Load the mt76 stack; ignore "already loaded".
+#    cfg80211/mac80211 are already resident (stock wlan_drv_gen4m) — don't
+#    bundle or reload them.
+for ko in mt76 mt76-usb mt76x02-lib mt76x02-usb mt76x2-common mt76x2u; do
     insmod "$MODDIR/modules/$ko.ko" 2>/dev/null
 done
 
