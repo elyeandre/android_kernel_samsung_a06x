@@ -13,21 +13,28 @@ mkdir -p "${WDIR}/dist"
 
 # Localversion
 #
-# CONFIG_LOCALVERSION *is* the KMI string in vermagic, and module loading
-# compares vermagic byte-for-byte. It MUST stay identical to stock:
+# vermagic is compared byte-for-byte when loading modules, so the release string
+# must match stock exactly. Note how it is assembled -- scripts/setlocalversion
+# (line ~188) prepends the GKI branch/KMI generation itself:
 #
-#   stock modules: vermagic=5.15.151-android13-8-30546824 SMP preempt ...
+#   KERNELRELEASE = 5.15.151 + "-android13-8" + CONFIG_LOCALVERSION
+#                   ^KERNELVERSION  ^from BRANCH=android13-5.15 + KMI_GENERATION=8
 #
-# Renaming it (e.g. to "-a06x-dev") makes every stock vendor_boot/vendor_dlkm
-# module fail to load -> no display/touch/PMIC -> the device never reaches the
-# boot animation. Keeping it is what lets a GKI 2.0 kernel be flashed as
-# boot.img alone against the stock vendor images.
+#   stock:  5.15.151-android13-8-30546824   => CONFIG_LOCALVERSION="-30546824"
 #
-# BUILD_KERNEL_VERSION is still used to name the build artifacts below.
+# So CONFIG_LOCALVERSION must be ONLY the trailing build id. Do NOT put
+# "-android13-8" here or it is emitted twice
+# (5.15.151-android13-8-android13-8-...). Setting anything else -- e.g.
+# "-a06x-dev", which yields the observed 5.15.151-android13-8-a06x-dev -- makes
+# every stock vendor_boot/vendor_dlkm module fail to load, so there is no
+# display/touch/PMIC and the device never reaches the boot animation.
+#
+# Matching stock is what lets this GKI 2.0 kernel be flashed as boot.img alone
+# against the stock vendor images. BUILD_KERNEL_VERSION still names artifacts.
 if [ -z "${BUILD_KERNEL_VERSION:-}" ]; then
     export BUILD_KERNEL_VERSION="dev"
 fi
-KMI_LOCALVERSION="${KMI_LOCALVERSION:--android13-8-30546824}"
+KMI_LOCALVERSION="${KMI_LOCALVERSION:--30546824}"
 printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="%s"\n' "${KMI_LOCALVERSION}" \
     > "${WDIR}/custom_defconfigs/version_defconfig"
 

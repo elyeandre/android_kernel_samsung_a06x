@@ -18,7 +18,7 @@ on:
         required: false
         default: "false"
       kmi_localversion:
-        description: "Mode A: leave EMPTY (stock KMI, boot.img can be flashed alone). Mode B: e.g. -a06x-dev (then flash ALL 3 images together)"
+        description: "CONFIG_LOCALVERSION only (build id). '-android13-8' is added automatically. Mode A: leave EMPTY -> -30546824 (stock KMI, boot.img alone). Mode B: e.g. -a06x-dev (then flash ALL 3 images)"
         required: false
         default: ""
 
@@ -253,7 +253,7 @@ jobs:
             | KernelSU-Next      | `${{ steps.ksu.outputs.tag }}` (`${{ steps.ksu.outputs.version }}`) |
             | Build tag          | `${{ steps.tag.outputs.tag }}`                       |
             | Version            | `${{ github.event.inputs.kernel_version || 'dev' }}` |
-            | vermagic           | `5.15.151${{ github.event.inputs.kmi_localversion || '-android13-8-30546824' }}` |
+            | vermagic           | `5.15.151-android13-8${{ github.event.inputs.kmi_localversion || '-30546824' }}` |
             | Flash mode         | ${{ github.event.inputs.kmi_localversion && '**Mode B** — custom KMI, flash ALL THREE images together' || '**Mode A** — stock KMI, `boot.img` alone is enough' }} |
 
             ${{ github.event.inputs.kmi_localversion && 'This build uses a CUSTOM vermagic, so stock vendor modules will NOT load. Flash `boot.img` + `vendor_boot.img` + `vendor_dlkm.img` from THIS archive together, via Odin as **AP**.' || 'This build keeps the stock KMI, so you can flash `boot.img` alone via Odin as **AP** and keep your existing vendor images.' }}
