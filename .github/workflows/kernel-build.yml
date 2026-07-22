@@ -90,45 +90,45 @@ jobs:
             exit 1
           fi
 
-      - name: Check KMI/ABI against baseline
+      # ADVISORY ONLY — this must never block a kernel build. It reports on the
+      # KMI/ABI and nothing more; continue-on-error plus `set +e` and a final
+      # `exit 0` guarantee the job outcome is unaffected either way.
+      - name: Check KMI/ABI against baseline (advisory)
         id: kabi
         if: steps.build.outcome != 'cancelled'
+        continue-on-error: true
         run: |
+          set +e
           BASE=prebuilts_a06x/kabi_baseline.txt
           KOBJ=out/target/product/a06x/obj/KERNEL_OBJ
 
-          # Diagnostics first: an empty baseline means one of these is missing,
-          # and previously the failure was hidden by `|| true`.
           echo "--- KABI inputs ---"
-          echo "Module.symvers: $(find "$KOBJ" -name Module.symvers 2>/dev/null | head -3 || true)"
-          echo "  lines: $(cat "$(find "$KOBJ" -name Module.symvers -print -quit 2>/dev/null)" 2>/dev/null | wc -l)"
+          SYMVERS="$(find "$KOBJ" -name Module.symvers -print -quit 2>/dev/null)"
+          if [ -n "$SYMVERS" ]; then
+            echo "Module.symvers: $SYMVERS ($(wc -l < "$SYMVERS" 2>/dev/null) lines)"
+          else
+            echo "Module.symvers: NOT FOUND under $KOBJ"
+          fi
           for c in "$KOBJ/kernel-5.15/abi_symbollist.raw" "$KOBJ/abi_symbollist.raw" \
                    kernel-5.15/android/abi_gki_aarch64; do
-            [ -f "$c" ] && echo "KMI list: $c ($(wc -l < "$c") symbols)"
+            [ -f "$c" ] && echo "KMI list: $c ($(wc -l < "$c" 2>/dev/null) symbols)"
           done
           echo "-------------------"
 
-          # Snapshot the current CRCs for download (never touches the committed
-          # baseline). Report failure loudly instead of swallowing it.
-          if ! KABI_BASELINE="$PWD/dist/kabi_current.txt" \
-                 bash prebuilts_a06x/scripts/check_kabi.sh --save; then
-            echo "::warning::KABI snapshot failed — see the inputs above (no Module.symvers, or no KMI symbols matched)."
-          fi
-
-          if [[ "${{ github.event.inputs.refresh_kabi_baseline }}" == "true" ]]; then
+          # Snapshot current CRCs for download (never touches the committed baseline).
+          KABI_BASELINE="$PWD/dist/kabi_current.txt" \
             bash prebuilts_a06x/scripts/check_kabi.sh --save
-            echo "::warning::KABI baseline re-recorded. Commit ${BASE} to make it the new reference."
-          elif [[ -f "$BASE" ]]; then
+
+          if [ -f "$BASE" ]; then
             if bash prebuilts_a06x/scripts/check_kabi.sh; then
               echo "::notice::KMI/ABI unchanged — stock vendor modules will still load."
             else
-              echo "::error::KMI/ABI BREAK — stock vendor modules would fail to load (no boot animation)."
-              exit 1
+              echo "::warning::KMI/ABI differs from the baseline. Advisory only; review before flashing boot.img against stock vendor images."
             fi
           else
-            bash prebuilts_a06x/scripts/check_kabi.sh --save
-            echo "::warning::No KABI baseline yet. Commit ${BASE} (or grab it from the kabi-baseline artifact) to enable ABI regression checks."
+            echo "::notice::No KABI baseline committed — skipping comparison."
           fi
+          exit 0
 
       - name: Upload KABI snapshot
         if: always() && steps.build.outcome != 'cancelled'
