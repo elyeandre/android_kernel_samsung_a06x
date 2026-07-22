@@ -48,6 +48,22 @@ else
     echo "[*] sysroot declares in_addr_t/in_port_t -> no -D fallback needed"
 fi
 
+# bionic implements pthread/rt inside libc and the NDK ships no libpthread, so
+# autotools' AC_CHECK_LIB(pthread, pthread_mutex_lock) fails with
+# "libpthread is required". Provide empty stub archives so -lpthread/-lrt
+# resolve; the real symbols come from libc at link time.
+COMPAT="${WORK}/compat"
+if [ ! -f "${COMPAT}/libpthread.a" ]; then
+    echo "[*] Creating libpthread/librt stubs for the NDK sysroot..."
+    mkdir -p "$COMPAT"
+    echo 'static int _ksu_compat_stub __attribute__((unused));' > "${WORK}/_stub.c"
+    "$CC" -c "${WORK}/_stub.c" -o "${WORK}/_stub.o"
+    for stub in pthread rt; do
+        "$AR" rcs "${COMPAT}/lib${stub}.a" "${WORK}/_stub.o"
+    done
+fi
+export LDFLAGS="-L${COMPAT} ${LDFLAGS:-}"
+
 # ------------------------------------------------------------- static libnl 3.7
 if [ ! -f "${NL_PREFIX}/lib/libnl-3.a" ]; then
     echo "[*] Building static libnl ${LIBNL_VER}..."
@@ -59,7 +75,7 @@ if [ ! -f "${NL_PREFIX}/lib/libnl-3.a" ]; then
     ( cd "libnl-${LIBNL_VER}"
       ./configure --host=aarch64-linux-android --prefix="${NL_PREFIX}" \
           --enable-static --disable-shared --disable-cli \
-          CC="$CC" AR="$AR" RANLIB="$RANLIB" CPPFLAGS="$FIX"
+          CC="$CC" AR="$AR" RANLIB="$RANLIB" CPPFLAGS="$FIX" LDFLAGS="$LDFLAGS"
       make -j"$(nproc)"
       make install )
 fi
