@@ -289,6 +289,43 @@ A full bring-up of an MT7612U dongle confirmed the design and refined it:
    driver. `service.sh` now scans for `0e8d:7612/7632` and writes the interface to
    `…/mt76x2u/bind`.
 
+### Confirmed on-device (gen4m notifier fix)
+
+`ip addr add 192.168.18.214/24 dev wlan1` now completes without rebooting, and
+the interface holds the address. The fix is verified *in the running module*,
+not just inferred, by the log line the guard emits:
+
+```bash
+su -c "dmesg -c > /dev/null"
+su -c "ip addr del <ip>/24 dev wlan1"; su -c "ip addr add <ip>/24 dev wlan1"
+su -c "dmesg | grep -i netdev_event"
+# [wlan][3712]netdev_event:(REQ INFO) netdev_event: wlan1 is not ours, skipping.
+```
+
+To check the patch is compiled into the module without triggering it:
+
+```bash
+su -c "find /vendor /vendor_dlkm -name 'wlan_drv_gen4m*.ko' 2>/dev/null"
+su -c "grep -ac 'is not ours' <path to wlan_drv_gen4m_*.ko>"   # >=1 => patched
+```
+
+### Confirmed: the boot failure was boot.img alone
+
+A build that did not boot was isolated to **`boot.img` only** — `vendor_boot` and
+`vendor_dlkm` were fine. Cause was the KMI string in vermagic. Note how the
+release is assembled (`scripts/setlocalversion` ~line 188):
+
+```
+KERNELRELEASE = 5.15.151 + "-android13-8" + CONFIG_LOCALVERSION
+stock:          5.15.151-android13-8-30546824  => CONFIG_LOCALVERSION="-30546824"
+observed bad:   5.15.151-android13-8-a06x-dev  => stock vendor modules rejected
+```
+
+`-android13-8` is added automatically, so `CONFIG_LOCALVERSION` must be **only**
+the trailing build id — putting the prefix there emits it twice and still fails.
+Any mismatch makes every stock vendor module fail to load: no display/touch/PMIC,
+no boot animation, and **no panic**, so `last_kmsg` shows nothing useful.
+
 **Userspace note (out of module scope):** the vendor
 `/vendor/bin/hw/wpa_supplicant` is HAL-locked (`hal_wifi_supplicant_default_exec`)
 and won't run standalone. Station-mode scanning + monitor mode were validated by
