@@ -1,0 +1,67 @@
+name: Static wpa_supplicant · wlan1 (aarch64)
+
+# Runs on demand, when its own inputs change, and as a PARALLEL job of the
+# kernel build (via workflow_call). Being a separate job means it runs on its
+# own runner concurrently, so it adds ~no wall-clock time to a kernel build.
+on:
+  workflow_dispatch:
+    inputs:
+      link_mode:
+        description: "dynamic = proven (libc/libdl stay dynamic, always present on Android). static-bionic = EXPERIMENTAL, no NEEDED at all; only needed where /system isn't mounted (chroot/recovery)."
+        type: choice
+        options: [dynamic, static-bionic]
+        default: dynamic
+  workflow_call:
+    inputs:
+      link_mode:
+        type: string
+        required: false
+        default: dynamic
+  push:
+    branches: [main, feat/vendor-dlkm-rebuild]
+    paths:
+      - "ksu_module/build_wpa_supplicant.sh"
+      - ".github/workflows/wpa-supplicant.yml"
+
+permissions:
+  contents: read
+
+env:
+  NDK_VERSION: r26d
+
+jobs:
+  build:
+    name: NDK cross-compile
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential flex bison pkg-config unzip curl
+
+      - name: Cache NDK
+        uses: actions/cache@v4
+        with:
+          path: out/wpa-build/android-ndk-${{ env.NDK_VERSION }}
+          key: ndk-${{ env.NDK_VERSION }}
+
+      - name: Build static wpa_supplicant + wpa_cli
+        env:
+          # push/schedule runs have no inputs context value -> fall back to dynamic
+          LINK_MODE: ${{ inputs.link_mode || 'dynamic' }}
+        run: bash ksu_module/build_wpa_supplicant.sh "$PWD/dist/wpa"
+
+      - name: Show results
+        run: |
+          file dist/wpa/wpa_supplicant dist/wpa/wpa_cli
+          ls -la dist/wpa/
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: wpa_supplicant-wlan1-aarch64-${{ inputs.link_mode || 'dynamic' }}
+          path: dist/wpa/*
+          retention-days: 30
