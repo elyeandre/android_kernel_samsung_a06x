@@ -12,10 +12,23 @@ export WDIR="$(pwd)"
 mkdir -p "${WDIR}/dist"
 
 # Localversion
+#
+# CONFIG_LOCALVERSION *is* the KMI string in vermagic, and module loading
+# compares vermagic byte-for-byte. It MUST stay identical to stock:
+#
+#   stock modules: vermagic=5.15.151-android13-8-30546824 SMP preempt ...
+#
+# Renaming it (e.g. to "-a06x-dev") makes every stock vendor_boot/vendor_dlkm
+# module fail to load -> no display/touch/PMIC -> the device never reaches the
+# boot animation. Keeping it is what lets a GKI 2.0 kernel be flashed as
+# boot.img alone against the stock vendor images.
+#
+# BUILD_KERNEL_VERSION is still used to name the build artifacts below.
 if [ -z "${BUILD_KERNEL_VERSION:-}" ]; then
     export BUILD_KERNEL_VERSION="dev"
 fi
-printf "CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION=\"-a06x-${BUILD_KERNEL_VERSION}\"\n" \
+KMI_LOCALVERSION="${KMI_LOCALVERSION:--android13-8-30546824}"
+printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="%s"\n' "${KMI_LOCALVERSION}" \
     > "${WDIR}/custom_defconfigs/version_defconfig"
 
 # ============================================================================
