@@ -262,23 +262,20 @@ build_gki_kernel() {
     local exit_code=$?
     cd "${WDIR}"
 
-    # Samsung bootloaders require the literal "SEANDROIDENFORCE" magic appended
-    # to the boot image; without it the image is rejected before the kernel ever
-    # runs, so there is no panic and no boot animation. mkbootimg does not add
-    # it, which is why CI images did not boot while a magiskboot repack of a
-    # working image did (the repack preserves the existing footer).
+    # NOTE: do NOT append SEANDROIDENFORCE here.
     #
-    # Compare, via `magiskboot unpack`:
-    #   working : KERNEL_FMT [gzip], SAMSUNG_SEANDROID, VBMETA
-    #   CI       : KERNEL_FMT [raw],                    VBMETA
-    if [ "$exit_code" -eq 0 ] && [ -f "${WDIR}/dist/boot.img" ]; then
-        if tail -c 16 "${WDIR}/dist/boot.img" | grep -q 'SEANDROIDENFORCE'; then
-            echo -e "${GREEN}[OK]${NC} boot.img already carries SEANDROIDENFORCE"
-        else
-            printf 'SEANDROIDENFORCE' >> "${WDIR}/dist/boot.img"
-            echo -e "${GREEN}[OK]${NC} Appended SEANDROIDENFORCE to boot.img"
-        fi
-    fi
+    # Samsung bootloaders do want that 16-byte magic, but AVB_SIGN_BOOT_IMG=1
+    # makes avbtool pad boot.img to exactly AVB_BOOT_PARTITION_SIZE
+    # (67108864). Appending afterwards yields 67108880 bytes and fastboot
+    # refuses it:
+    #   boot partition size: 67108864, boot image size: 67108880
+    #   FAILED (remote: 'Value too large for defined data type')
+    #
+    # The correct layout is [boot image][SEANDROIDENFORCE][AVB footer], i.e.
+    # the magic has to be added BEFORE signing. Doing that means disabling the
+    # GKI script's own AVB step and running avbtool add_hash_footer here
+    # instead. Until that is implemented, repack with magiskboot against a
+    # known-good boot.img - it preserves the footer and the kernel format.
 
     return $exit_code
 }
