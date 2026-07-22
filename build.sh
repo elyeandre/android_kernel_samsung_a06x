@@ -261,6 +261,25 @@ build_gki_kernel() {
 
     local exit_code=$?
     cd "${WDIR}"
+
+    # Samsung bootloaders require the literal "SEANDROIDENFORCE" magic appended
+    # to the boot image; without it the image is rejected before the kernel ever
+    # runs, so there is no panic and no boot animation. mkbootimg does not add
+    # it, which is why CI images did not boot while a magiskboot repack of a
+    # working image did (the repack preserves the existing footer).
+    #
+    # Compare, via `magiskboot unpack`:
+    #   working : KERNEL_FMT [gzip], SAMSUNG_SEANDROID, VBMETA
+    #   CI       : KERNEL_FMT [raw],                    VBMETA
+    if [ "$exit_code" -eq 0 ] && [ -f "${WDIR}/dist/boot.img" ]; then
+        if tail -c 16 "${WDIR}/dist/boot.img" | grep -q 'SEANDROIDENFORCE'; then
+            echo -e "${GREEN}[OK]${NC} boot.img already carries SEANDROIDENFORCE"
+        else
+            printf 'SEANDROIDENFORCE' >> "${WDIR}/dist/boot.img"
+            echo -e "${GREEN}[OK]${NC} Appended SEANDROIDENFORCE to boot.img"
+        fi
+    fi
+
     return $exit_code
 }
 
