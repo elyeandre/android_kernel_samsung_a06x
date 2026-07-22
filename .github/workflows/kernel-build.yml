@@ -95,10 +95,25 @@ jobs:
         if: steps.build.outcome != 'cancelled'
         run: |
           BASE=prebuilts_a06x/kabi_baseline.txt
-          # Always snapshot the current CRCs for download (never touches the
-          # committed baseline).
-          KABI_BASELINE="$PWD/dist/kabi_current.txt" \
-            bash prebuilts_a06x/scripts/check_kabi.sh --save || true
+          KOBJ=out/target/product/a06x/obj/KERNEL_OBJ
+
+          # Diagnostics first: an empty baseline means one of these is missing,
+          # and previously the failure was hidden by `|| true`.
+          echo "--- KABI inputs ---"
+          echo "Module.symvers: $(find "$KOBJ" -name Module.symvers 2>/dev/null | head -3 || true)"
+          echo "  lines: $(cat "$(find "$KOBJ" -name Module.symvers -print -quit 2>/dev/null)" 2>/dev/null | wc -l)"
+          for c in "$KOBJ/kernel-5.15/abi_symbollist.raw" "$KOBJ/abi_symbollist.raw" \
+                   kernel-5.15/android/abi_gki_aarch64; do
+            [ -f "$c" ] && echo "KMI list: $c ($(wc -l < "$c") symbols)"
+          done
+          echo "-------------------"
+
+          # Snapshot the current CRCs for download (never touches the committed
+          # baseline). Report failure loudly instead of swallowing it.
+          if ! KABI_BASELINE="$PWD/dist/kabi_current.txt" \
+                 bash prebuilts_a06x/scripts/check_kabi.sh --save; then
+            echo "::warning::KABI snapshot failed — see the inputs above (no Module.symvers, or no KMI symbols matched)."
+          fi
 
           if [[ "${{ github.event.inputs.refresh_kabi_baseline }}" == "true" ]]; then
             bash prebuilts_a06x/scripts/check_kabi.sh --save

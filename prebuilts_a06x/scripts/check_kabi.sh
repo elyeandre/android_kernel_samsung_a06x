@@ -44,7 +44,16 @@ extract() {  # -> "symbol CRC" for KMI symbols only
 }
 
 if [ "${1:-}" = "--save" ]; then
+    mkdir -p "$(dirname "$BASELINE")"
     extract > "$BASELINE"
+    if [ ! -s "$BASELINE" ]; then
+        echo "[ERROR] baseline is EMPTY - no KMI symbols matched." >&2
+        echo "        Module.symvers: $SYMVERS ($(wc -l < "$SYMVERS" 2>/dev/null || echo 0) lines)" >&2
+        echo "        KMI list      : ${KMI_LIST:-<none, would use ALL exports>}" >&2
+        echo "        Either the build exported nothing, or the symbol lists do not intersect." >&2
+        rm -f "$BASELINE"
+        exit 1
+    fi
     echo "[OK] baseline saved: $BASELINE ($(wc -l < "$BASELINE") symbols)"
     echo "     source: $SYMVERS"
     [ -n "$KMI_LIST" ] && echo "     KMI list: $KMI_LIST" || echo "     KMI list: (none — using ALL exported symbols)"
