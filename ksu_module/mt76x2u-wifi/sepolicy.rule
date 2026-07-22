@@ -12,6 +12,10 @@
 # read firmware whichever type it ends up with
 allow kernel vendor_firmware_file file { open read getattr }
 allow kernel adb_data_file file { open read getattr }
+# manual flow: firmware staged in /data/local/tmp/firmware (shell_data_file).
+# This is the denial seen on-device with `setenforce 0` as the workaround.
+allow kernel shell_data_file file { open read getattr }
+allow kernel shell_data_file dir { search open read }
 
 # permit service.sh's chcon (relabel) to vendor_firmware_file
 allow init adb_data_file file relabelfrom
