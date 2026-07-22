@@ -5,7 +5,18 @@ name: Static wpa_supplicant · wlan1 (aarch64)
 # own runner concurrently, so it adds ~no wall-clock time to a kernel build.
 on:
   workflow_dispatch:
+    inputs:
+      link_mode:
+        description: "dynamic = proven (libc/libdl stay dynamic, always present on Android). static-bionic = EXPERIMENTAL, no NEEDED at all; only needed where /system isn't mounted (chroot/recovery)."
+        type: choice
+        options: [dynamic, static-bionic]
+        default: dynamic
   workflow_call:
+    inputs:
+      link_mode:
+        type: string
+        required: false
+        default: dynamic
   push:
     branches: [main, feat/vendor-dlkm-rebuild]
     paths:
@@ -38,6 +49,9 @@ jobs:
           key: ndk-${{ env.NDK_VERSION }}
 
       - name: Build static wpa_supplicant + wpa_cli
+        env:
+          # push/schedule runs have no inputs context value -> fall back to dynamic
+          LINK_MODE: ${{ inputs.link_mode || 'dynamic' }}
         run: bash ksu_module/build_wpa_supplicant.sh "$PWD/dist/wpa"
 
       - name: Show results
@@ -48,6 +62,6 @@ jobs:
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
-          name: wpa_supplicant-wlan1-aarch64
+          name: wpa_supplicant-wlan1-aarch64-${{ inputs.link_mode || 'dynamic' }}
           path: dist/wpa/*
           retention-days: 30

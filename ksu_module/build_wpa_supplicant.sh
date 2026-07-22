@@ -14,6 +14,24 @@ API="${API:-24}"
 LIBNL_VER="3.7.0"
 WPA_VER="2.11"
 
+# How to link the final binaries:
+#   dynamic       (default, proven) libnl is baked in; libc.so/libdl.so stay
+#                 dynamic. Those are bionic itself and always present at
+#                 /system/lib64 on a booted device, so this is fully portable.
+#   static-bionic (EXPERIMENTAL) additionally links bionic statically, leaving a
+#                 binary with no NEEDED entries at all. Only useful where
+#                 /system is not mounted (chroot/container, recovery). Bionic
+#                 discourages static executables - dlopen/NSS/DNS break - but
+#                 wpa_supplicant with nl80211 + internal crypto + file config
+#                 uses none of those.
+LINK_MODE="${LINK_MODE:-dynamic}"
+case "$LINK_MODE" in
+    dynamic|static-bionic) ;;
+    *) echo "[ERROR] LINK_MODE must be 'dynamic' or 'static-bionic' (got '$LINK_MODE')" >&2
+       exit 1 ;;
+esac
+echo "[*] link mode: ${LINK_MODE}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 WORK="${WORK:-${REPO_ROOT}/out/wpa-build}"
@@ -90,6 +108,16 @@ echo "[*] Building static wpa_supplicant + wpa_cli ${WPA_VER}..."
 }
 cd "wpa_supplicant-${WPA_VER}/wpa_supplicant"
 
+# With -static everything is static already, so the -Bstatic/-Bdynamic dance is
+# unnecessary (and -Bdynamic at the end would fight it).
+if [ "$LINK_MODE" = "static-bionic" ]; then
+    WPA_LIBS="-L${NL_PREFIX}/lib -lnl-genl-3 -lnl-3"
+    WPA_LDFLAGS="-static"
+else
+    WPA_LIBS="-L${NL_PREFIX}/lib -Wl,-Bstatic -lnl-genl-3 -lnl-3 -Wl,-Bdynamic"
+    WPA_LDFLAGS=""
+fi
+
 # WPA2/WPA3-PSK, internal crypto (no OpenSSL), no SAE (needs OpenSSL EC), static libnl.
 cat > .config <<EOF
 CONFIG_DRIVER_NL80211=y
@@ -101,8 +129,9 @@ CONFIG_INTERNAL_LIBTOMMATH=y
 CONFIG_WPA=y
 CONFIG_IEEE80211W=y
 CONFIG_WPA_CLI_EDIT=y
-CFLAGS += -I${NL_PREFIX}/include/libnl3 ${FIX}
-LIBS   += -L${NL_PREFIX}/lib -Wl,-Bstatic -lnl-genl-3 -lnl-3 -Wl,-Bdynamic
+CFLAGS  += -I${NL_PREFIX}/include/libnl3 ${FIX}
+LIBS    += ${WPA_LIBS}
+LDFLAGS += ${WPA_LDFLAGS}
 EOF
 
 make clean >/dev/null 2>&1 || true
@@ -112,11 +141,24 @@ make -j"$(nproc)" CC="$CC" AR="$AR" wpa_supplicant wpa_cli
 mkdir -p "$OUTDIR"
 cp wpa_supplicant wpa_cli "$OUTDIR/"
 "${TC}/llvm-strip" "$OUTDIR/wpa_supplicant" "$OUTDIR/wpa_cli" 2>/dev/null || true
-echo "== wpa_supplicant NEEDED (want: libc.so, libdl.so only) =="
-"${TC}/llvm-readelf" -d "$OUTDIR/wpa_supplicant" | grep NEEDED || true
-if "${TC}/llvm-readelf" -d "$OUTDIR/wpa_supplicant" | grep -q 'libnl'; then
+echo "== link verification (${LINK_MODE}) =="
+NEEDED="$("${TC}/llvm-readelf" -d "$OUTDIR/wpa_supplicant" 2>/dev/null | grep NEEDED || true)"
+if [ -n "$NEEDED" ]; then
+    printf '%s\n' "$NEEDED"
+else
+    echo "  (no dynamic section — fully static)"
+fi
+
+# libnl must never be dynamic in either mode: it is the whole point of the build.
+if printf '%s' "$NEEDED" | grep -q 'libnl'; then
     echo "[ERROR] wpa_supplicant still links libnl dynamically" >&2
     exit 1
 fi
-echo "[OK] static binaries -> $OUTDIR"
+if [ "$LINK_MODE" = "static-bionic" ] && [ -n "$NEEDED" ]; then
+    echo "[ERROR] static-bionic requested but the binary still has NEEDED entries" >&2
+    exit 1
+fi
+
+file "$OUTDIR/wpa_supplicant" 2>/dev/null || true
+echo "[OK] binaries (${LINK_MODE}) -> $OUTDIR"
 ls -la "$OUTDIR"
