@@ -18,7 +18,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 KOBJ="${REPO_ROOT}/out/target/product/a06x/obj/KERNEL_OBJ"
 SYMVERS="$(find "$KOBJ" -name Module.symvers -print -quit 2>/dev/null || true)"
-BASELINE="${REPO_ROOT}/prebuilts_a06x/kabi_baseline.txt"
+# Override with KABI_BASELINE=<path> to snapshot/compare elsewhere (CI uses this
+# to capture the current CRCs without touching the committed baseline).
+BASELINE="${KABI_BASELINE:-${REPO_ROOT}/prebuilts_a06x/kabi_baseline.txt}"
 
 [ -n "$SYMVERS" ] || { echo "[ERROR] Module.symvers not found — build the kernel first." >&2; exit 1; }
 

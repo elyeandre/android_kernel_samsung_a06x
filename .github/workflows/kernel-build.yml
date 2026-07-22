@@ -6,13 +6,17 @@ on:
   workflow_dispatch:
     inputs:
       kernel_version:
-        description: "Kernel localversion suffix (e.g. 1.0.0)"
+        description: "Build/artifact version tag (e.g. 1.0.0). Does NOT change vermagic."
         required: false
         default: "dev"
       build_variant:
         description: "Build variant (e.g. KernelSU-Next, KernelSU-Next+DroidSpaces)"
         required: false
         default: "KernelSU-Next"
+      refresh_kabi_baseline:
+        description: "Re-record the KMI/ABI baseline instead of checking against it"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
@@ -79,6 +83,42 @@ jobs:
             echo "[ERROR] boot.img not found in dist/"
             exit 1
           fi
+
+      - name: Check KMI/ABI against baseline
+        id: kabi
+        if: steps.build.outcome != 'cancelled'
+        run: |
+          BASE=prebuilts_a06x/kabi_baseline.txt
+          # Always snapshot the current CRCs for download (never touches the
+          # committed baseline).
+          KABI_BASELINE="$PWD/dist/kabi_current.txt" \
+            bash prebuilts_a06x/scripts/check_kabi.sh --save || true
+
+          if [[ "${{ github.event.inputs.refresh_kabi_baseline }}" == "true" ]]; then
+            bash prebuilts_a06x/scripts/check_kabi.sh --save
+            echo "::warning::KABI baseline re-recorded. Commit ${BASE} to make it the new reference."
+          elif [[ -f "$BASE" ]]; then
+            if bash prebuilts_a06x/scripts/check_kabi.sh; then
+              echo "::notice::KMI/ABI unchanged — stock vendor modules will still load."
+            else
+              echo "::error::KMI/ABI BREAK — stock vendor modules would fail to load (no boot animation)."
+              exit 1
+            fi
+          else
+            bash prebuilts_a06x/scripts/check_kabi.sh --save
+            echo "::warning::No KABI baseline yet. Commit ${BASE} (or grab it from the kabi-baseline artifact) to enable ABI regression checks."
+          fi
+
+      - name: Upload KABI snapshot
+        if: always() && steps.build.outcome != 'cancelled'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kabi-baseline-${{ github.run_number }}
+          path: |
+            dist/kabi_current.txt
+            prebuilts_a06x/kabi_baseline.txt
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Generate built modules list
         if: steps.build.outcome != 'cancelled'
