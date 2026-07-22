@@ -284,3 +284,10 @@ jobs:
           name: build-logs-${{ github.run_number }}
           path: out/
           retention-days: 7
+
+  # Runs on its own runner CONCURRENTLY with the kernel build above, so it costs
+  # ~no extra wall-clock time. Emits the wpa_supplicant-wlan1-aarch64 artifact
+  # into this same run, next to the kernel artifacts.
+  wpa:
+    name: Static wpa_supplicant (parallel)
+    uses: ./.github/workflows/wpa-supplicant.yml

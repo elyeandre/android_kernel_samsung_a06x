@@ -1,9 +1,11 @@
 name: Static wpa_supplicant · wlan1 (aarch64)
 
-# Separate from the kernel build so it never lengthens it. Runs on demand and
-# when its own inputs change.
+# Runs on demand, when its own inputs change, and as a PARALLEL job of the
+# kernel build (via workflow_call). Being a separate job means it runs on its
+# own runner concurrently, so it adds ~no wall-clock time to a kernel build.
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches: [main, feat/vendor-dlkm-rebuild]
     paths:
