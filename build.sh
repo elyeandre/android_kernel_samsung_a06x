@@ -189,8 +189,14 @@ export_common_build_env() {
         -o ../out/target/product/a06x/obj/KERNEL_OBJ/build.config &>/dev/null
 
     # build.config.mtk.aarch64 sets FILES="vmlinux" which only copies vmlinux to
-    # DIST_DIR. Append Image so build_boot_images() can find the kernel binary.
-    printf '\nFILES="${FILES} arch/arm64/boot/Image"\n' \
+    # DIST_DIR. Append the kernel binaries so build_boot_images() can find them.
+    #
+    # Both are exported: Image.gz is what gets packed (see KERNEL_BINARY below),
+    # while the raw Image is still published as an artifact for repacking by
+    # hand with magiskboot. Image.gz is arm64's default target
+    # (arch/arm64/Makefile: KBUILD_IMAGE := $(boot)/Image.gz), so the build
+    # already produces it.
+    printf '\nFILES="${FILES} arch/arm64/boot/Image arch/arm64/boot/Image.gz"\n' \
         >> "${WDIR}/out/target/product/a06x/obj/KERNEL_OBJ/build.config.mtk"
 
     # Common exports from Samsung's build_kernel.sh
@@ -220,7 +226,10 @@ export_custom_build_env() {
         "MAKE_MENUCONFIG=${MAKE_MENUCONFIG}"
         "BUILD_BOOT_IMG=1"
         "MKBOOTIMG_PATH=${WDIR}/prebuilts_a06x/mkbootimg/mkbootimg.py"
-        "KERNEL_BINARY=Image"
+        # Pack the gzip kernel to match stock. `magiskboot unpack` of a working
+        # boot.img reports KERNEL_FMT [gzip]; CI packed raw Image, which is a
+        # real deviation from stock (and 42MB vs 19MB in a 64MB partition).
+        "KERNEL_BINARY=Image.gz"
         "BOOT_IMAGE_HEADER_VERSION=4"
         "SKIP_VENDOR_BOOT=1"
         "AVB_SIGN_BOOT_IMG=1"

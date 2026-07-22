@@ -241,16 +241,18 @@ jobs:
           path: ${{ env.ARCHIVE }}
           retention-days: 30
 
-      - name: Upload raw kernel Image
-        # The bare Image, for repacking into a known-good boot.img yourself
-        # (e.g. `magiskboot unpack` a working boot.img, drop this in as
-        # `kernel`, `magiskboot repack`). Avoids having to unpack CI's boot.img
-        # just to extract the kernel.
+      - name: Upload kernel Image (raw + gz)
+        # Both variants, for repacking into a known-good boot.img yourself:
+        #   magiskboot unpack working_boot.img && cp Image kernel && magiskboot repack working_boot.img
+        # Use the RAW Image for that — magiskboot re-compresses it to match the
+        # template image's format automatically. Image.gz is what CI packs.
         if: steps.build.outcome != 'cancelled'
         uses: actions/upload-artifact@v4
         with:
           name: Image-${{ steps.tag.outputs.tag }}
-          path: dist/Image
+          path: |
+            dist/Image
+            dist/Image.gz
           if-no-files-found: warn
           retention-days: 30
 
