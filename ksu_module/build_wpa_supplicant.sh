@@ -37,16 +37,18 @@ export AR="${TC}/llvm-ar"
 export RANLIB="${TC}/llvm-ranlib"
 [ -x "$CC" ] || { echo "[ERROR] NDK clang not found at $CC" >&2; exit 1; }
 
-# Guard: if this sysroot also lacks the in_addr_t/in_port_t typedefs (the Termux
-# quirk), add the -D fallback; otherwise leave it off so we don't double-typedef.
-FIX=""
-if ! printf '#include <netinet/in.h>\nin_addr_t a; in_port_t p;\n' \
-        | "$CC" -x c -c - -o /dev/null 2>/dev/null; then
-    FIX="-Din_addr_t=uint32_t -Din_port_t=uint16_t"
-    echo "[*] sysroot lacks in_addr_t/in_port_t -> using: $FIX"
-else
-    echo "[*] sysroot declares in_addr_t/in_port_t -> no -D fallback needed"
-fi
+# bionic does not make in_addr_t/in_port_t visible the way libnl's sources
+# expect: libnl reaches <arpa/inet.h> through its own -I./include/linux-private
+# path and the typedefs never materialise, so every use in arpa/inet.h and
+# netlink-private/{types,utils}.h fails with "unknown type name".
+#
+# This is NOT a Termux quirk - Termux uses the NDK's bionic headers, so the NDK
+# sysroot reproduces it identically (verified on ndk-r26d in CI). Define the two
+# types on the command line; safe because nothing on bionic emits a conflicting
+# `typedef ... in_addr_t` in these translation units, which is exactly why the
+# on-device build succeeded with the same flags.
+FIX="-Din_addr_t=uint32_t -Din_port_t=uint16_t"
+echo "[*] bionic header workaround: $FIX"
 
 # bionic implements pthread/rt inside libc and the NDK ships no libpthread, so
 # autotools' AC_CHECK_LIB(pthread, pthread_mutex_lock) fails with
