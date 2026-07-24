@@ -1,7 +1,7 @@
 # Build Flow — SM-A066B (A06X) Kernel
 
 Device: Samsung Galaxy A06X (SM-A066B)
-Firmware: A066BXXS3AYI3 · One UI 8 (Android 15)
+Firmware: A066BXXS3AYI3 · One UI 7 (Android 15)
 Kernel: 5.15 · SoC: MediaTek MT6835
 
 ---

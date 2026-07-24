@@ -1,4 +1,4 @@
-name: Kernel Build · SM-A066B One UI 8
+name: Kernel Build · SM-A066B One UI 7
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 120
 
     env:
-      ARTIFACT_BASE: "Kernel-SM-A066B-OneUI8-A066BXXS3AYI3"
+      ARTIFACT_BASE: "Kernel-SM-A066B-OneUI7-A066BXXS3AYI3"
       BUILD_VARIANT: ${{ github.event.inputs.build_variant || 'KernelSU-Next' }}
 
     steps:
@@ -214,7 +214,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: "${{ env.BUILD_VARIANT }} · SM-A066B · One UI 8 · A066BXXS3AYI3 [${{ steps.tag.outputs.tag }}]"
+          name: "${{ env.BUILD_VARIANT }} · SM-A066B · One UI 7 · A066BXXS3AYI3 [${{ steps.tag.outputs.tag }}]"
           body: |
             ## ${{ env.BUILD_VARIANT }} Kernel — SM-A066B
 
@@ -222,7 +222,7 @@ jobs:
             |--------------------|------------------------------------------------------|
             | Device             | Samsung Galaxy A06X (SM-A066B)                       |
             | Firmware           | A066BXXS3AYI3                                        |
-            | One UI             | 8 (Android 15)                                       |
+            | One UI             | 7 (Android 15)                                       |
             | Kernel             | 5.15                                                 |
             | Variant            | `${{ env.BUILD_VARIANT }}`                           |
             | KernelSU-Next      | `${{ steps.ksu.outputs.tag }}` (`${{ steps.ksu.outputs.version }}`) |
