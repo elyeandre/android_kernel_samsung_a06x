@@ -11,6 +11,58 @@ NC='\033[0m' # No Color
 export WDIR="$(pwd)"
 mkdir -p "${WDIR}/dist"
 
+# ============================================================================
+# Command-line options
+#
+# Every flag just sets the environment variable the rest of the script already
+# reads, so `FOO=bar ./build.sh` and `./build.sh --foo bar` are equivalent.
+# Parsed here, up front, because the Localversion block below consumes several
+# of them immediately.
+# ============================================================================
+SKIP_DEPS=0
+usage() {
+    cat <<'EOF'
+Usage: ./build.sh [options]
+
+  -n, --name NAME       Base name of the output zip           (env RELEASE_NAME)
+                        default: kernel-a06x-<version>
+  -V, --version VER     Artifact version tag (does NOT change vermagic)
+                        (env BUILD_KERNEL_VERSION, default: dev)
+  -b, --mode-b          Custom-vermagic build (Mode B), vermagic ...-a06x-dev.
+                        Then flash ALL images together. For a different suffix
+                        use --kmi.                             (env KMI_LOCALVERSION)
+      --kmi STR         Set CONFIG_LOCALVERSION directly, e.g. --kmi -mykernel
+                        (Mode B). Omit entirely for stock KMI = Mode A, the
+                        default (boot.img alone).
+      --user NAME       KBUILD_BUILD_USER  - branding only, KMI-safe (def elyeandre)
+      --host NAME       KBUILD_BUILD_HOST  - branding only, KMI-safe (def a06x)
+  -m, --menuconfig      Open menuconfig during the build
+  -s, --skip-deps       Skip apt dependency installation
+  -h, --help            Show this help
+
+Examples:
+  ./build.sh                     # Mode A, stock KMI (flash boot.img alone)
+  ./build.sh -n a06x-mt76-r1     # custom output name
+  ./build.sh --mode-b            # Mode B (vermagic ...-a06x-dev)
+  ./build.sh -s                  # reuse already-installed deps
+EOF
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -n|--name)       export RELEASE_NAME="${2:?--name needs a value}"; shift 2 ;;
+        -V|--version)    export BUILD_KERNEL_VERSION="${2:?--version needs a value}"; shift 2 ;;
+        -b|--mode-b)     export KMI_LOCALVERSION="-a06x-dev"; shift ;;
+        --kmi)           export KMI_LOCALVERSION="${2:?--kmi needs a value (omit for stock KMI)}"; shift 2 ;;
+        --user)          export KBUILD_BUILD_USER="${2:?--user needs a value}"; shift 2 ;;
+        --host)          export KBUILD_BUILD_HOST="${2:?--host needs a value}"; shift 2 ;;
+        -m|--menuconfig) export MAKE_MENUCONFIG=1; shift ;;
+        -s|--skip-deps)  SKIP_DEPS=1; shift ;;
+        -h|--help)       usage; exit 0 ;;
+        *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
+    esac
+done
+
 # Localversion
 #
 # vermagic is compared byte-for-byte when loading modules, so the release string
@@ -222,7 +274,7 @@ export_common_build_env() {
 export_custom_build_env() {
     # Run menuconfig only if you want to.
     # It's better to use MAKE_MENUCONFIG=0 when everything is already properly enabled, disabled, or configured.
-    export MAKE_MENUCONFIG=0
+    export MAKE_MENUCONFIG="${MAKE_MENUCONFIG:-0}"
 
     export GKI_KERNEL_BUILD_OPTIONS=(
         "LTO=thin"
@@ -385,11 +437,11 @@ EOF
 # ============================================================================
 print_banner
 
-# Check for --skip-deps flag
-if [[ "${1:-}" != "--skip-deps" ]]; then
+# Dependency install (skip with -s/--skip-deps)
+if [ "${SKIP_DEPS}" -eq 0 ]; then
     install_dependencies
 else
-    echo -e "\n${YELLOW}[INFO]${NC} Skipping dependency installation (--skip-deps flag)\n"
+    echo -e "\n${YELLOW}[INFO]${NC} Skipping dependency installation (--skip-deps)\n"
 fi
 
 setup_toolchain
