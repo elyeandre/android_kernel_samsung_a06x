@@ -75,6 +75,12 @@ install_dependencies() {
         lz4
         xz-utils
         zlib1g-dev
+        # vendor_dlkm.img is EROFS (mkfs.erofs); vendor_boot repack (boot_editor)
+        # is a Gradle/Java tool needing JDK 17+. On CI these came from the runner
+        # image; on a VPS build.sh must provide them.
+        erofs-utils
+        openjdk-17-jdk-headless
+        zip
     )
     
     echo -e "\n${YELLOW}[INFO]${NC} Checking build requirements..."
@@ -292,12 +298,86 @@ build_gki_kernel() {
 # ============================================================================
 # Function: Package as Odin-flashable tar
 # ============================================================================
-build_odin_tar() {
-    echo -e "\n${YELLOW}[INFO]${NC} Packaging Odin-flashable tar...\n"
-    cd "${WDIR}/dist"
-    tar -cvf "kernel-a06x-${BUILD_KERNEL_VERSION}.tar" boot.img
-    echo -e "${GREEN}[OK]${NC} Odin tar created: dist/kernel-a06x-${BUILD_KERNEL_VERSION}.tar\n"
-    cd "${WDIR}"
+build_vendor_images() {
+    echo -e "\n${YELLOW}[INFO]${NC} Rebuilding vendor_dlkm and vendor_boot...\n"
+
+    # boot_editor (vendor_boot repack) needs JDK 17+. CI exports JAVA_HOME_17_X64;
+    # on a VPS, fall back to the distro's OpenJDK 17 installed by install_dependencies.
+    if [ -z "${JAVA_HOME_17_X64:-}" ] && [ -z "${JAVA_HOME:-}" ]; then
+        for j in /usr/lib/jvm/java-17-openjdk-amd64 /usr/lib/jvm/java-17-openjdk* ; do
+            [ -d "$j" ] && { export JAVA_HOME="$j"; break; }
+        done
+    fi
+
+    bash "${WDIR}/prebuilts_a06x/scripts/build_vendor_dlkm.sh"
+    bash "${WDIR}/prebuilts_a06x/scripts/build_vendor_boot.sh"
+    echo -e "${GREEN}[OK]${NC} vendor_dlkm.img + vendor_boot.img -> dist/\n"
+}
+
+# ============================================================================
+# Function: Package the flashable release
+#
+#   dist/<NAME>.zip
+#   └── <NAME>/
+#       ├── <NAME>.tar        Odin (AP): boot.img + vendor_boot.img
+#       ├── vendor_dlkm.img   fastbootd: `fastboot flash vendor_dlkm`
+#       └── FLASH.txt         step-by-step guide
+#
+# vendor_dlkm is a LOGICAL partition inside `super`; Odin only writes physical
+# PIT partitions, so it can NEVER flash vendor_dlkm. It ships loose for fastbootd.
+# boot and vendor_boot are physical partitions -> they go in the Odin AP tar.
+# Override the base name with RELEASE_NAME=... (CI uses the artifact/tag name).
+# ============================================================================
+package_release() {
+    local NAME="${RELEASE_NAME:-kernel-a06x-${BUILD_KERNEL_VERSION}}"
+    local OUT="${WDIR}/dist"
+    local STAGE="${OUT}/${NAME}"
+
+    echo -e "\n${YELLOW}[INFO]${NC} Packaging release ${NAME}...\n"
+
+    local missing=0
+    for img in boot.img vendor_boot.img vendor_dlkm.img ; do
+        [ -f "${OUT}/${img}" ] || { echo -e "${RED}[ERROR]${NC} dist/${img} missing"; missing=1; }
+    done
+    [ "$missing" -eq 0 ] || return 1
+
+    rm -rf "${STAGE}"; mkdir -p "${STAGE}"
+
+    # Odin AP tar: physical partitions only. Odin maps entries to partitions by
+    # filename, so raw <partition>.img files flash to their partitions.
+    tar -cf "${STAGE}/${NAME}.tar" -C "${OUT}" boot.img vendor_boot.img
+
+    # vendor_dlkm ships loose (fastbootd only)
+    cp "${OUT}/vendor_dlkm.img" "${STAGE}/"
+
+    cat > "${STAGE}/FLASH.txt" <<EOF
+${NAME}
+
+Flash in TWO steps — vendor_dlkm cannot be flashed by Odin.
+
+1) Odin (Download mode)
+   Load  ${NAME}.tar  into the AP slot and flash.
+   (boot.img + vendor_boot.img — both physical partitions)
+
+2) fastbootD  (vendor_dlkm is a LOGICAL partition inside 'super'; Odin cannot
+   write it — only fastbootD can)
+     adb reboot fastboot                          # enter fastbootD
+     fastboot flash vendor_dlkm vendor_dlkm.img
+     fastboot reboot
+
+Notes
+- Do step 1 first, then step 2.
+- From bootloader mode, 'fastboot reboot fastboot' also reaches fastbootD.
+- 'fastboot flash vendor_dlkm' needs an unlocked bootloader.
+EOF
+
+    ( cd "${OUT}" && rm -f "${NAME}.zip" && zip -qr "${NAME}.zip" "${NAME}" )
+    rm -rf "${STAGE}"
+
+    echo -e "${GREEN}[OK]${NC} dist/${NAME}.zip"
+    echo -e "     |- ${NAME}.tar     (Odin AP: boot + vendor_boot)"
+    echo -e "     |- vendor_dlkm.img (fastboot flash vendor_dlkm)"
+    echo -e "     \`- FLASH.txt\n"
 }
 
 # ============================================================================
@@ -316,4 +396,5 @@ setup_toolchain
 export_common_build_env
 export_custom_build_env
 build_gki_kernel || exit 1
-build_odin_tar
+build_vendor_images
+package_release

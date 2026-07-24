@@ -71,6 +71,10 @@ jobs:
           BUILD_KERNEL_VERSION: ${{ github.event.inputs.kernel_version || 'dev' }}
           # Empty => build.sh falls back to the stock KMI string (Mode A).
           KMI_LOCALVERSION: ${{ github.event.inputs.kmi_localversion }}
+          # build.sh now rebuilds vendor_dlkm/vendor_boot AND packages the
+          # flashable zip itself (dist/<RELEASE_NAME>.zip). Name it to match the
+          # release tag so the later upload/release steps can find it.
+          RELEASE_NAME: ${{ env.ARTIFACT_BASE }}-${{ steps.tag.outputs.tag }}
         run: bash build.sh
         continue-on-error: true
 
@@ -162,21 +166,17 @@ jobs:
           path: ${{ env.KSU_MODULE_ZIP }}
           retention-days: 30
 
-      - name: Rebuild vendor_dlkm and vendor_boot
-        if: steps.verify.outputs.image_found == 'true'
-        run: |
-          sudo apt-get install -y erofs-utils 2>/dev/null
-          bash prebuilts_a06x/scripts/build_vendor_dlkm.sh
-          bash prebuilts_a06x/scripts/build_vendor_boot.sh
-
-      - name: Package Odin flashable tar
+      # vendor_dlkm/vendor_boot rebuild + release packaging now happen inside
+      # build.sh (so a VPS build produces the same zip). Just locate it here.
+      - name: Locate release package
         if: steps.verify.outputs.image_found == 'true'
         run: |
           NAME="${ARTIFACT_BASE}-${{ steps.tag.outputs.tag }}"
-          tar -cvf "${NAME}.tar" -C dist boot.img vendor_dlkm.img vendor_boot.img
-          zip "${NAME}.tar.zip" "${NAME}.tar"
-          echo "ARCHIVE=${NAME}.tar.zip" >> "$GITHUB_ENV"
-          echo "ARCHIVE_NAME=${NAME}"    >> "$GITHUB_ENV"
+          ZIP="dist/${NAME}.zip"
+          [ -f "$ZIP" ] || { echo "[ERROR] ${ZIP} not produced by build.sh"; ls -lh dist/; exit 1; }
+          echo "ARCHIVE=${ZIP}"    >> "$GITHUB_ENV"
+          echo "ARCHIVE_NAME=${NAME}" >> "$GITHUB_ENV"
+          echo "[OK] ${ZIP}"; unzip -l "$ZIP"
 
       - name: Upload artifact
         if: steps.verify.outputs.image_found == 'true'
@@ -231,7 +231,17 @@ jobs:
             | vermagic           | `5.15.151-android13-8${{ github.event.inputs.kmi_localversion || '-30546824' }}` |
             | Flash mode         | ${{ github.event.inputs.kmi_localversion && '**Mode B** — custom KMI, flash ALL THREE images together' || '**Mode A** — stock KMI, `boot.img` alone is enough' }} |
 
-            ${{ github.event.inputs.kmi_localversion && 'This build uses a CUSTOM vermagic, so stock vendor modules will NOT load. Flash `boot.img` + `vendor_boot.img` + `vendor_dlkm.img` from THIS archive together, via Odin as **AP**.' || 'This build keeps the stock KMI, so you can flash `boot.img` alone via Odin as **AP** and keep your existing vendor images.' }}
+            ### Flashing — the zip contains a folder with:
+            - **`…-<tag>.tar`** → Odin **AP** slot (this is `boot.img` + `vendor_boot.img`, both physical partitions)
+            - **`vendor_dlkm.img`** → **fastbootD**, *not* Odin. `vendor_dlkm` is a logical partition inside `super`, so Odin can't write it:
+              ```
+              adb reboot fastboot
+              fastboot flash vendor_dlkm vendor_dlkm.img
+              fastboot reboot
+              ```
+            - **`FLASH.txt`** → the same steps, offline.
+
+            ${{ github.event.inputs.kmi_localversion && '**Mode B (custom vermagic):** stock vendor modules will NOT load, so you MUST flash both the AP tar (Odin) and `vendor_dlkm.img` (fastbootD) from THIS build.' || '**Mode A (stock KMI):** for a kernel-only update you can flash `boot.img` alone and keep your current vendor images. Flash the tar + `vendor_dlkm.img` when you also want the rebuilt vendor (e.g. the gen4m fix).' }}
 
             Kernel modules (`.ko`) are attached separately as **`…-modules.zip`**,
             including the **MT76x2U** USB Wi-Fi stack (MT7612U dongles).
