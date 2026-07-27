@@ -1584,8 +1584,15 @@ int ieee80211_txq_setup_flows(struct ieee80211_local *local)
 	local->cparams.target = MS2TIME(20);
 	local->cparams.ecn = true;
 
-	local->cvars = kcalloc(fq->flows_cnt, sizeof(local->cvars[0]),
-			       GFP_KERNEL);
+	/*
+	 * flows_cnt is 4096, so this is a ~128 KiB (order-5) allocation. On a
+	 * long-running, fragmented system a contiguous kcalloc for it fails
+	 * with -ENOMEM (seen as ieee80211_register_hw() aborting a wifi driver
+	 * probe). cvars is CPU-only software state (never DMA'd), so use
+	 * kvcalloc() to fall back to vmalloc — matching fq->flows in fq_init().
+	 */
+	local->cvars = kvcalloc(fq->flows_cnt, sizeof(local->cvars[0]),
+				GFP_KERNEL);
 	if (!local->cvars) {
 		spin_lock_bh(&fq->lock);
 		fq_reset(fq, fq_skb_free_func);
@@ -1608,7 +1615,7 @@ void ieee80211_txq_teardown_flows(struct ieee80211_local *local)
 	if (!local->ops->wake_tx_queue)
 		return;
 
-	kfree(local->cvars);
+	kvfree(local->cvars);
 	local->cvars = NULL;
 
 	spin_lock_bh(&fq->lock);
