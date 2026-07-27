@@ -47,3 +47,9 @@ CONFIG_WLAN_VENDOR_MEDIATEK=y
 # Must be =m: it depends on MAC80211, which is =m (a built-in can't depend on a module).
 # Auto-selects (via kconfig): MT76x2_COMMON, MT76x02_LIB, MT76_CORE, MT76x02_USB, MT76_USB
 CONFIG_MT76x2U=m
+
+# WireGuard VPN — built into the kernel (=y) so it's always present and needs no
+# vendor packaging or modules.load entry. Kconfig auto-selects all deps built-in:
+# NET_UDP_TUNNEL, DST_CACHE, CRYPTO_LIB_CURVE25519, CRYPTO_LIB_CHACHA20POLY1305,
+# and the ARM64 NEON crypto. Userspace still needs wg/wg-quick (Termux or static).
+CONFIG_WIREGUARD=y
