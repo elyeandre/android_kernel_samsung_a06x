@@ -86,17 +86,20 @@ static const struct ieee80211_iface_combination mt76x02u_if_comb[] = {
 	}
 };
 
-static void
-mt76x02_led_set_config(struct mt76_dev *mdev, u8 delay_on,
-		       u8 delay_off)
+static void mt76x02_led_work(struct work_struct *work)
 {
-	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev,
-					       mt76);
+	struct mt76x02_dev *dev = container_of(work, struct mt76x02_dev,
+					       led_work);
+	struct mt76_dev *mdev = &dev->mt76;
 	u32 val;
 
 	val = FIELD_PREP(MT_LED_STATUS_DURATION, 0xff) |
-	      FIELD_PREP(MT_LED_STATUS_OFF, delay_off) |
-	      FIELD_PREP(MT_LED_STATUS_ON, delay_on);
+	      FIELD_PREP(MT_LED_STATUS_OFF, dev->led_delay_off) |
+	      FIELD_PREP(MT_LED_STATUS_ON, dev->led_delay_on);
+
+	dev_info(mdev->dev,
+		 "mt76x02 LED work: pin=%d on=0x%02x off=0x%02x s_val=0x%08x\n",
+		 mdev->led_pin, dev->led_delay_on, dev->led_delay_off, val);
 
 	mt76_wr(dev, MT_LED_S0(mdev->led_pin), val);
 	mt76_wr(dev, MT_LED_S1(mdev->led_pin), val);
@@ -105,7 +108,36 @@ mt76x02_led_set_config(struct mt76_dev *mdev, u8 delay_on,
 	      MT_LED_CTRL_KICK(mdev->led_pin);
 	if (mdev->led_al)
 		val |= MT_LED_CTRL_POLARITY(mdev->led_pin);
+
+	dev_info(mdev->dev, "mt76x02 LED CTRL: 0x%08x\n", val);
 	mt76_wr(dev, MT_LED_CTRL, val);
+}
+
+static void
+mt76x02_led_set_config(struct mt76_dev *mdev, u8 delay_on, u8 delay_off)
+{
+	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
+
+	if (mt76_is_usb(mdev)) {
+		dev->led_delay_on  = delay_on;
+		dev->led_delay_off = delay_off;
+		queue_work(mdev->wq, &dev->led_work);
+	} else {
+		u32 val;
+
+		val = FIELD_PREP(MT_LED_STATUS_DURATION, 0xff) |
+		      FIELD_PREP(MT_LED_STATUS_OFF, delay_off) |
+		      FIELD_PREP(MT_LED_STATUS_ON, delay_on);
+
+		mt76_wr(dev, MT_LED_S0(mdev->led_pin), val);
+		mt76_wr(dev, MT_LED_S1(mdev->led_pin), val);
+
+		val = MT_LED_CTRL_REPLAY(mdev->led_pin) |
+		      MT_LED_CTRL_KICK(mdev->led_pin);
+		if (mdev->led_al)
+			val |= MT_LED_CTRL_POLARITY(mdev->led_pin);
+		mt76_wr(dev, MT_LED_CTRL, val);
+	}
 }
 
 static int
@@ -164,13 +196,13 @@ void mt76x02_init_device(struct mt76x02_dev *dev)
 		wiphy->reg_notifier = mt76x02_regd_notifier;
 		wiphy->iface_combinations = mt76x02_if_comb;
 		wiphy->n_iface_combinations = ARRAY_SIZE(mt76x02_if_comb);
+	}
 
-		/* init led callbacks */
-		if (IS_ENABLED(CONFIG_MT76_LEDS)) {
-			dev->mt76.led_cdev.brightness_set =
-					mt76x02_led_set_brightness;
-			dev->mt76.led_cdev.blink_set = mt76x02_led_set_blink;
-		}
+	if (IS_ENABLED(CONFIG_MT76_LEDS)) {
+		if (mt76_is_usb(&dev->mt76))
+			INIT_WORK(&dev->led_work, mt76x02_led_work);
+		dev->mt76.led_cdev.brightness_set = mt76x02_led_set_brightness;
+		dev->mt76.led_cdev.blink_set = mt76x02_led_set_blink;
 	}
 
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_VHT_IBSS);

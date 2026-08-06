@@ -113,6 +113,10 @@ struct mt76x02_dev {
 	s8 target_power_delta[2];
 	bool enable_tpc;
 
+	struct work_struct led_work;
+	u8 led_delay_on;
+	u8 led_delay_off;
+
 	bool no_2ghz;
 
 	s16 coverage_class;
