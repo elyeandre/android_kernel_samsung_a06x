@@ -384,13 +384,24 @@ minstrel_ht_get_stats(struct minstrel_priv *mp, struct minstrel_ht_sta *mi,
 
 	idx = 0;
 out:
+	if (WARN_ON_ONCE(group < 0 || group >= ARRAY_SIZE(mi->groups)))
+		group = 0;
+	if (WARN_ON_ONCE(idx < 0 || idx >= MCS_GROUP_RATES))
+		idx = 0;
 	return &mi->groups[group].rates[idx];
 }
 
 static inline struct minstrel_rate_stats *
 minstrel_get_ratestats(struct minstrel_ht_sta *mi, int index)
 {
-	return &mi->groups[MI_RATE_GROUP(index)].rates[MI_RATE_IDX(index)];
+	int group = MI_RATE_GROUP(index);
+	int idx = MI_RATE_IDX(index);
+
+	if (WARN_ON_ONCE(group < 0 || group >= ARRAY_SIZE(mi->groups)))
+		group = 0;
+	if (WARN_ON_ONCE(idx < 0 || idx >= MCS_GROUP_RATES))
+		idx = 0;
+	return &mi->groups[group].rates[idx];
 }
 
 static inline int minstrel_get_duration(int index)
