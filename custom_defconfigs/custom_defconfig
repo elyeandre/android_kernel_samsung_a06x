@@ -47,6 +47,9 @@ CONFIG_WLAN_VENDOR_MEDIATEK=y
 # Must be =m: it depends on MAC80211, which is =m (a built-in can't depend on a module).
 # Auto-selects (via kconfig): MT76x2_COMMON, MT76x02_LIB, MT76_CORE, MT76x02_USB, MT76_USB
 CONFIG_MT76x2U=m
+# LED activity blink — creates /sys/class/leds/mt76-phy* with throughput-based
+# trigger (blinks faster as data flows, like Windows driver). Requires LEDS_CLASS=y (already set).
+CONFIG_MAC80211_LEDS=y
 
 # WireGuard VPN — built into the kernel (=y) so it's always present and needs no
 # vendor packaging or modules.load entry. Kconfig auto-selects all deps built-in:
