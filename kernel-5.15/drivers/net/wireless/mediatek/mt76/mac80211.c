@@ -111,6 +111,9 @@ static int mt76_led_init(struct mt76_dev *dev)
 	snprintf(dev->led_name, sizeof(dev->led_name),
 		 "mt76-%s", wiphy_name(hw->wiphy));
 
+	dev_info(dev->dev, "mt76 LED init: %s usb=%d\n",
+		 dev->led_name, mt76_is_usb(dev));
+
 	dev->led_cdev.name = dev->led_name;
 	dev->led_cdev.default_trigger =
 		ieee80211_create_tpt_led_trigger(hw,
